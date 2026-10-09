@@ -21,6 +21,8 @@ const DEFAULTS = {
   skin: null,
   cape: 'luma',
   balance: 1250,
+  shader: null,
+  perfPreset: null,
 };
 
 function useSettings() {

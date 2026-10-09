@@ -4,6 +4,7 @@
 mod elyby;
 mod game;
 mod launch;
+mod mods;
 mod nbt;
 mod slp;
 
@@ -304,6 +305,39 @@ async fn play_direct(app: AppHandle, ram_gb: u32, session: elyby::Session) -> Re
     launch::play(&app, ram_gb, &session, &instance).await
 }
 
+#[tauri::command]
+fn list_shaders() -> Vec<game::ShaderFile> {
+    game::modpack().shaders.clone()
+}
+
+#[tauri::command]
+fn list_local_mods(app: AppHandle) -> Result<Vec<String>, String> {
+    mods::list_local(game::modpack(), &game::instance_dir(&app)?)
+}
+
+/// `path` is a real filesystem path — from the file-picker dialog or a window drag-drop event.
+#[tauri::command]
+fn add_local_mod(app: AppHandle, path: String) -> Result<String, String> {
+    mods::add_local(&game::instance_dir(&app)?, std::path::Path::new(&path))
+}
+
+#[tauri::command]
+fn remove_local_mod(app: AppHandle, filename: String) -> Result<(), String> {
+    mods::remove_local(game::modpack(), &game::instance_dir(&app)?, &filename)
+}
+
+#[tauri::command]
+async fn set_shader(app: AppHandle, slug: Option<String>) -> Result<(), String> {
+    let client = game::http()?;
+    mods::set_shader(&client, game::modpack(), &game::instance_dir(&app)?, slug.as_deref()).await
+}
+
+#[tauri::command]
+async fn apply_perf_preset(app: AppHandle, preset: String) -> Result<(), String> {
+    let client = game::http()?;
+    mods::apply_preset(&client, game::modpack(), &game::instance_dir(&app)?, &preset).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // reqwest is built without a bundled crypto provider; ring keeps every target buildable.
@@ -329,7 +363,13 @@ pub fn run() {
             ely_login,
             ely_refresh,
             ely_textures,
-            play_direct
+            play_direct,
+            list_shaders,
+            list_local_mods,
+            add_local_mod,
+            remove_local_mod,
+            set_shader,
+            apply_perf_preset
         ])
         .run(tauri::generate_context!())
         .expect("error while running Luma");

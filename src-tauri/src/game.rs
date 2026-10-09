@@ -43,6 +43,19 @@ pub struct AuthInfo {
     pub url: String,
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct ShaderFile {
+    pub slug: String,
+    pub name: String,
+    /// light | balanced | heavy — maps to the performance presets.
+    pub tier: String,
+    pub version: String,
+    pub file: String,
+    pub url: String,
+    pub sha512: String,
+    pub size: u64,
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct Modpack {
     pub name: String,
@@ -53,6 +66,7 @@ pub struct Modpack {
     /// The Fabric loader version JSON, as meta.fabricmc.net serves it for the official launcher.
     pub profile: serde_json::Value,
     pub mods: Vec<ModFile>,
+    pub shaders: Vec<ShaderFile>,
 }
 
 pub fn modpack() -> &'static Modpack {
@@ -116,12 +130,12 @@ pub fn sha512_hex(bytes: &[u8]) -> String {
     Sha512::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn file_sha512(path: &Path) -> Option<String> {
+pub fn file_sha512(path: &Path) -> Option<String> {
     fs::read(path).ok().map(|b| sha512_hex(&b))
 }
 
 /// Writes through a temp file so a crash never leaves half a jar or half a JSON.
-fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }

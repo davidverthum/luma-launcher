@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Slider, Button, Icon, Tabs, Tag, PlayerHead, RankBadge, Input } from '../ds/index.js';
-import { systemInfo, inTauri, modpack, elyLogin, checkUpdate, installUpdate, appVersion } from '../native.js';
+import { systemInfo, inTauri, modpack, elyLogin, checkUpdate, installUpdate, appVersion, listShaders, listLocalMods, addLocalMod, removeLocalMod, setShader, applyPerfPreset } from '../native.js';
 
 const plural = (n, [one, few, many]) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many; };
 
-const NAV = [['perf', 'chip', 'Производительность'], ['look', 'sparkle', 'Внешний вид'], ['account', 'user', 'Аккаунт'], ['launcher', 'block', 'О лаунчере']];
+const NAV = [['perf', 'chip', 'Производительность'], ['mods', 'package', 'Моды'], ['look', 'sparkle', 'Внешний вид'], ['account', 'user', 'Аккаунт'], ['launcher', 'block', 'О лаунчере']];
+const PRESETS = [['low', 'Слабый ПК'], ['medium', 'Средний'], ['high', 'Мощный']];
 
 export default function Settings({ settings, update, notify, realm, openFolder }) {
   const [nav, setNav] = useState('perf');
@@ -20,6 +22,60 @@ export default function Settings({ settings, update, notify, realm, openFolder }
   const [upd, setUpd] = useState(null);
   const [updChecking, setUpdChecking] = useState(false);
   const [updBusy, setUpdBusy] = useState(false);
+
+  const [presetBusy, setPresetBusy] = useState(null);
+  const runPreset = (preset) => {
+    setPresetBusy(preset);
+    applyPerfPreset(preset)
+      .then(() => { update((s) => ({ ...s, perfPreset: preset })); notify({ icon: 'bolt', title: 'Готово', body: 'Настройки применятся при следующем «Играть».' }); })
+      .catch((e) => notify({ tone: 'danger', icon: 'close', title: 'Не применилось', body: String((e && e.message) || e) }))
+      .finally(() => setPresetBusy(null));
+  };
+
+  const [shaders, setShaders] = useState([]);
+  const [activeShader, setActiveShader] = useState(settings.shader || null);
+  const [shaderBusy, setShaderBusy] = useState(null);
+  const [localMods, setLocalMods] = useState([]);
+  const [modDrag, setModDrag] = useState(false);
+  const [modBusy, setModBusy] = useState(false);
+  const refreshLocalMods = () => listLocalMods().then(setLocalMods).catch(() => {});
+  useEffect(() => {
+    if (nav !== 'mods') return;
+    listShaders().then(setShaders).catch(() => {});
+    refreshLocalMods();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nav]);
+  useEffect(() => {
+    if (nav !== 'mods' || !inTauri) return;
+    let unlisten = null;
+    getCurrentWindow().onDragDropEvent((e) => {
+      const t = e.payload.type;
+      if (t === 'enter' || t === 'over') { setModDrag(true); return; }
+      if (t === 'leave' || t === 'cancel') { setModDrag(false); return; }
+      if (t !== 'drop') return;
+      setModDrag(false);
+      const jars = e.payload.paths.filter((p) => p.toLowerCase().endsWith('.jar'));
+      if (!jars.length) { notify({ tone: 'danger', icon: 'close', title: 'Это не .jar', body: 'Перетащи файл мода.' }); return; }
+      setModBusy(true);
+      Promise.all(jars.map((p) => addLocalMod(p)))
+        .then((names) => { notify({ icon: 'check', title: 'Добавлено', body: names.join(', ') }); refreshLocalMods(); })
+        .catch((e2) => notify({ tone: 'danger', icon: 'close', title: 'Не добавилось', body: String((e2 && e2.message) || e2) }))
+        .finally(() => setModBusy(false));
+    }).then((u) => { unlisten = u; });
+    return () => { if (unlisten) unlisten(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nav]);
+
+  const pickShader = (slug) => {
+    setShaderBusy(slug || 'off');
+    setShader(slug)
+      .then(() => { setActiveShader(slug); update((s) => ({ ...s, shader: slug })); })
+      .catch((e) => notify({ tone: 'danger', icon: 'close', title: 'Не включилось', body: String((e && e.message) || e) }))
+      .finally(() => setShaderBusy(null));
+  };
+  const dropMod = (filename) => {
+    removeLocalMod(filename).then(refreshLocalMods).catch((e) => notify({ tone: 'danger', icon: 'close', title: 'Не удалилось', body: String((e && e.message) || e) }));
+  };
 
   const checkForUpdate = () => {
     setUpdChecking(true);
@@ -73,7 +129,7 @@ export default function Settings({ settings, update, notify, realm, openFolder }
             <Icon name={icon} size={24} /><span>{label}</span>
           </button>
         ))}
-        <div className="st-nav-foot caption">Сервер: <b>{realm.name} · {modpack.minecraft}</b><br />Память уходит в профиль «Luma» официального Minecraft Launcher</div>
+        <div className="st-nav-foot caption">Сервер: <b>{realm.name} · {modpack.minecraft}</b><br />Luma запускает игру сама, без официального лаунчера</div>
       </nav>
       <div className="st-main">
         {nav === 'perf' ? (
@@ -89,12 +145,20 @@ export default function Settings({ settings, update, notify, realm, openFolder }
               <section className="st-card">
                 <Slider label="Память для игры" value={ram} onChange={setRam} min={2} max={maxRam} step={1} unit="ГБ" recommend={rec} marks={marks} />
               </section>
+              <section className="st-card">
+                <div className="body-strong">Пресет под твой ПК</div>
+                <p className="caption">Дальность прорисовки, частицы, сглаживание теней и шейдеры — всё разом. Применится при следующем «Играть».</p>
+                <div className="st-row">
+                  {PRESETS.map(([id, label]) => (
+                    <Button key={id} size="sm" variant={settings.perfPreset === id ? 'luma' : 'glass'} loading={presetBusy === id} disabled={!!presetBusy} onClick={() => runPreset(id)}>{label}</Button>
+                  ))}
+                </div>
+              </section>
               <section className="st-card st-launch">
                 <div className="body-strong">Как запускается игра</div>
                 <ol className="st-steps">
-                  <li><b>Luma</b> скачивает и сверяет {modpack.mods.length} модов ({String(modpack.totalMb).replace('.', ',')} МБ) и ставит Fabric {modpack.loader.version}.</li>
-                  <li>Создаёт профиль <b>«Luma»</b> в официальном Minecraft Launcher и добавляет сервер в «Сетевую игру».</li>
-                  <li>Открывает Minecraft Launcher: там вход в твой аккаунт Microsoft и Java — нажимаешь «Играть».</li>
+                  <li><b>Luma</b> скачивает и сверяет {modpack.mods.length} модов ({String(modpack.totalMb).replace('.', ',')} МБ), версию игры и Java — ничего ставить вручную не нужно.</li>
+                  <li>Запускает Minecraft напрямую со своим аккаунтом Ely.by — без официального лаунчера и Microsoft.</li>
                 </ol>
                 <div className="st-row">
                   <Button size="sm" icon="folder" onClick={() => openFolder()}>Папка игры</Button>
@@ -102,6 +166,38 @@ export default function Settings({ settings, update, notify, realm, openFolder }
                 </div>
               </section>
             </div>
+          </>
+        ) : null}
+        {nav === 'mods' ? (
+          <>
+            <header className="st-head"><div><h1 className="display-lg">Моды</h1><p className="body st-sub">Шейдеры и свои моды поверх сборки — Luma их не трогает при обновлении.</p></div></header>
+            <section className="st-card">
+              <div className="body-strong">Шейдеры</div>
+              <div className="st-row">
+                <Button size="sm" variant={!activeShader ? 'luma' : 'glass'} loading={shaderBusy === 'off'} disabled={!!shaderBusy} onClick={() => pickShader(null)}>Выключены</Button>
+                {shaders.map((s) => (
+                  <Button key={s.slug} size="sm" variant={activeShader === s.slug ? 'luma' : 'glass'} loading={shaderBusy === s.slug} disabled={!!shaderBusy} onClick={() => pickShader(s.slug)}>{s.name}</Button>
+                ))}
+              </div>
+            </section>
+            <section className="st-card">
+              <div className="body-strong">Свои моды</div>
+              <p className="caption">Перетащи .jar в окно лаунчера, пока открыта эта вкладка.</p>
+              <div className="st-row" style={{ border: '1px dashed var(--line)', borderRadius: 12, padding: 16, opacity: modDrag ? 1 : 0.6, justifyContent: 'center' }}>
+                <Icon name="download" size={24} />
+                <span className="caption">{modBusy ? 'Добавляем…' : modDrag ? 'Отпусти, чтобы добавить' : 'Перетащи .jar сюда'}</span>
+              </div>
+              {localMods.length ? (
+                <ul className="st-steps">
+                  {localMods.map((f) => (
+                    <li key={f} className="st-row" style={{ justifyContent: 'space-between' }}>
+                      <span className="mono caption">{f}</span>
+                      <Button size="sm" variant="ghost" icon="trash" onClick={() => dropMod(f)}>Убрать</Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="caption">Своих модов пока нет.</p>}
+            </section>
           </>
         ) : null}
         {nav === 'look' ? (

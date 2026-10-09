@@ -307,5 +307,37 @@
    "sha512": "617711d65c0ac1ddb8069ed46051c7da5fd7f4a19adbefc1c6d417621d32a4a4929dd60bd76f204045537a151d29f5e518aa7d18d604012ef1f9b62de707530d",
    "size": 914494
   }
+ ],
+ "shaders": [
+  {
+   "slug": "nostalgia-shader",
+   "name": "Nostalgia",
+   "tier": "light",
+   "version": "5.1",
+   "file": "Nostalgia_v5.1.zip",
+   "url": "https://cdn.modrinth.com/data/xEItlMn3/versions/fzxeGgx7/Nostalgia_v5.1.zip",
+   "sha512": "9a15161da2e360bcc446bfeb5163a2b4e70e49b46545ccbdde05540a46d861a7a378c243769faeabca76019e75cb1e55b1b2c04f74b8aaa23b86d436ebbb034c",
+   "size": 1842205
+  },
+  {
+   "slug": "complementary-reimagined",
+   "name": "Complementary Reimagined",
+   "tier": "balanced",
+   "version": "r5.9.3",
+   "file": "ComplementaryReimagined_r5.9.3.zip",
+   "url": "https://cdn.modrinth.com/data/HVnmMxH1/versions/Bqen1mJX/ComplementaryReimagined_r5.9.3.zip",
+   "sha512": "45304b1d7862afdb2177b7e6226fc9c6737911d17a4ad46cc9c519ca4deb935f05072cd337cd8b19a15bb8062b57b54eceec7bdee4cd572d94858e2946d37d85",
+   "size": 553397
+  },
+  {
+   "slug": "bsl-shaders",
+   "name": "BSL",
+   "tier": "heavy",
+   "version": "10.1.8",
+   "file": "BSL_v10.1.8.zip",
+   "url": "https://cdn.modrinth.com/data/Q1vvjJYV/versions/Y68yiql9/BSL_v10.1.8.zip",
+   "sha512": "94a3c25d6820868db624e11347873e6b572e7cd571967d9ac6f4690ca5d37ca302a7645d85eec800e0654541e3825fba14d37b5a25d3996aaf038178552be26f",
+   "size": 1134153
+  }
  ]
 }

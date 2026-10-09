@@ -149,6 +149,35 @@ export function elyTextures(name) {
   return invoke('ely_textures', { name });
 }
 
+/** The curated shader packs ({ slug, name, tier, ... }) — same list for everyone. */
+export function listShaders() {
+  return inTauri ? invoke('list_shaders') : Promise.resolve([]);
+}
+
+/** Jars in the instance's mods/ folder that aren't part of the pinned pack. */
+export function listLocalMods() {
+  return inTauri ? invoke('list_local_mods') : Promise.resolve([]);
+}
+
+/** Copies a jar (a real filesystem path, e.g. from a window drag-drop event) into mods/. */
+export function addLocalMod(path) {
+  return inTauri ? invoke('add_local_mod', { path }) : Promise.reject(new Error('Только в приложении.'));
+}
+
+export function removeLocalMod(filename) {
+  return inTauri ? invoke('remove_local_mod', { filename }) : Promise.reject(new Error('Только в приложении.'));
+}
+
+/** `null` turns shaders off; a shader slug downloads it (if needed) and switches Iris to it. */
+export function setShader(slug) {
+  return inTauri ? invoke('set_shader', { slug: slug || null }) : Promise.reject(new Error('Только в приложении.'));
+}
+
+/** 'low' | 'medium' | 'high' — render distance, particles, AO, fps cap and a sensible shader default. */
+export function applyPerfPreset(preset) {
+  return inTauri ? invoke('apply_perf_preset', { preset }) : Promise.reject(new Error('Только в приложении.'));
+}
+
 /** Checks the GitHub release feed for a newer build; null when already up to date. */
 export function checkUpdate() {
   if (!inTauri) return Promise.resolve(null);
