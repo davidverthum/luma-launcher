@@ -1,0 +1,151 @@
+// Bridge to the Rust core. In a plain browser (vite dev without Tauri) everything falls back to safe stand-ins.
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import pack from '../src-tauri/modpack.json';
+
+export const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+export function platform() {
+  const ua = navigator.userAgent || '';
+  if (/Mac OS X|Macintosh/.test(ua)) return 'mac';
+  if (/Windows/.test(ua)) return 'windows';
+  return 'linux';
+}
+
+const LS_KEY = 'luma.settings';
+
+export async function loadSettings() {
+  if (inTauri) {
+    try { return (await invoke('load_settings')) || {}; } catch (e) { console.warn('load_settings', e); return {}; }
+  }
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; }
+}
+
+export async function saveSettings(settings) {
+  if (inTauri) return invoke('save_settings', { settings });
+  try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch { /* private mode */ }
+}
+
+export async function systemInfo() {
+  if (inTauri) {
+    try { return await invoke('system_info'); } catch (e) { console.warn('system_info', e); }
+  }
+  return { os: platform(), os_version: '', arch: '', cpu: 'процессор не определён', cores: navigator.hardwareConcurrency || 4, memory_gb: navigator.deviceMemory || 8, hostname: '' };
+}
+
+export async function detectJava() {
+  if (inTauri) {
+    try { return await invoke('detect_java'); } catch (e) { console.warn('detect_java', e); }
+  }
+  return { found: false, path: null, version: null };
+}
+
+export async function openRealmDir(realm) {
+  if (inTauri) return invoke('open_realm_dir', { realm });
+  return null;
+}
+
+/** The modpack this launcher ships (same file the Rust core installs from). */
+export const modpack = {
+  name: pack.name,
+  minecraft: pack.minecraft,
+  loader: pack.loader,
+  server: pack.server,
+  mods: pack.mods.map((m) => m.name),
+  totalMb: Math.round(pack.mods.reduce((a, m) => a + m.size, 0) / 1e5) / 10,
+};
+
+/** Live server status. The app pings the server itself; the browser preview asks a public status API. */
+export async function serverStatus() {
+  if (inTauri) {
+    try { return await invoke('server_status'); } catch (e) { return { online: false, players: 0, max: 0, sample: [], error: String(e) }; }
+  }
+  try {
+    const j = await fetch('https://api.mcsrvstat.us/3/' + encodeURIComponent(pack.server.address)).then((r) => r.json());
+    return { online: !!j.online, players: (j.players && j.players.online) || 0, max: (j.players && j.players.max) || 0, version: j.version || '',
+      motd: (j.motd && j.motd.clean && j.motd.clean.join(' ')) || '', latency_ms: 0, sample: ((j.players && j.players.list) || []).map((p) => p.name) };
+  } catch (e) { return { online: false, players: 0, max: 0, sample: [], error: String(e) }; }
+}
+
+/** Syncs mods and sets up the «Luma» profile + server entry. Resolves with a report. */
+export const prepareGame = (ramGb) => invoke('prepare_game', { ramGb });
+/** Calls `cb(progress)` for every sync step; returns the unsubscribe function. */
+export const onProgress = (cb) => (inTauri ? listen('luma://progress', (e) => cb(e.payload)) : Promise.resolve(() => {}));
+export const openMinecraftLauncher = () => invoke('open_minecraft_launcher');
+export const openGameDir = () => (inTauri ? invoke('open_game_dir') : Promise.resolve(null));
+export function openUrl(url) {
+  if (inTauri) return invoke('plugin:opener|open_url', { url });
+  window.open(url, '_blank', 'noopener');
+  return Promise.resolve();
+}
+
+export async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* fall through */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  const ok = document.execCommand('copy');
+  ta.remove();
+  return ok;
+}
+
+async function authFetch(path, body) {
+  const r = await fetch(pack.auth.url + '/api/' + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+/** Registers a Luma account (nick + password). Never touches Microsoft/Mojang. */
+export function authRegister(name, password) {
+  return inTauri ? invoke('auth_register', { name, password }) : authFetch('register', { name, password });
+}
+
+export function authLogin(name, password) {
+  return inTauri ? invoke('auth_login', { name, password }) : authFetch('login', { name, password });
+}
+
+/** Revalidates a stored session token; throws if it's expired or revoked. */
+export async function authMe(token) {
+  if (inTauri) return invoke('auth_me', { token });
+  const r = await fetch(pack.auth.url + '/api/me', { headers: { Authorization: 'Bearer ' + token } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+/** Ely.by login (Yggdrasil-compatible) — a non-premium Minecraft identity, not a Microsoft one.
+ * Pass the stored `clientToken` back on every later call; omit it only on first login. */
+export function elyLogin(username, password, clientToken) {
+  if (!inTauri) return Promise.reject(new Error('Нужно приложение Luma — в браузере не запустить Minecraft.'));
+  return invoke('ely_login', { username, password, clientToken: clientToken || null });
+}
+
+/** Extends an Ely.by session; throws if the account needs a fresh password. */
+export function elyRefresh(accessToken, clientToken) {
+  if (!inTauri) return Promise.reject(new Error('Нужно приложение Luma — в браузере не запустить Minecraft.'));
+  return invoke('ely_refresh', { accessToken, clientToken });
+}
+
+/** Syncs mods, then launches Minecraft directly with the given Ely.by session. */
+export function playDirect(ramGb, session) {
+  if (!inTauri) return Promise.reject(new Error('Это браузерная версия — скачай Luma для своей системы.'));
+  return invoke('play_direct', { ramGb, session });
+}
+
+/** The player's real skin/cape from Ely.by, as data URIs ({ skin, cape }, either may be null). */
+export function elyTextures(name) {
+  if (!inTauri) return Promise.resolve({ skin: null, cape: null });
+  return invoke('ely_textures', { name });
+}
+
+export const win = {
+  minimize: () => inTauri && getCurrentWindow().minimize(),
+  toggleMaximize: () => inTauri && getCurrentWindow().toggleMaximize(),
+  close: () => inTauri && getCurrentWindow().close(),
+};

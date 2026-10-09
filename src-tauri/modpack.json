@@ -1,0 +1,311 @@
+{
+ "name": "Luma",
+ "minecraft": "1.21.1",
+ "loader": {
+  "type": "fabric",
+  "version": "0.19.5"
+ },
+ "server": {
+  "name": "Luma",
+  "address": "x1.qwertyx.host:28828"
+ },
+ "auth": {
+  "url": "http://localhost:8787"
+ },
+ "profile": {
+  "id": "fabric-loader-0.19.5-1.21.1",
+  "inheritsFrom": "1.21.1",
+  "releaseTime": "2026-10-09T13:03:54+0000",
+  "time": "2026-10-09T13:03:54+0000",
+  "type": "release",
+  "mainClass": "net.fabricmc.loader.impl.launch.knot.KnotClient",
+  "arguments": {
+   "game": [],
+   "jvm": [
+    "-DFabricMcEmu= net.minecraft.client.main.Main "
+   ]
+  },
+  "libraries": [
+   {
+    "name": "org.ow2.asm:asm:9.10.1",
+    "url": "https://maven.fabricmc.net/",
+    "md5": "9cb72080438acf27f2607002e1444a7b",
+    "sha1": "ada2141c0cc52ee8f5c48cd5fa4ce0e794f22236",
+    "sha256": "ed825d10ab1399c8c0cb669e688cf0c8c82629b4c8399b58352b68e92ca10fcb",
+    "sha512": "8db6efa37d4d569bf2b95d90931b8064f87ed928d20bbf8d8e7fa6182e9a11d32e6a2cc034a3d173a38ee70ce2ea9f20f52f9d8730d9401d2bc6060674c18928",
+    "size": 126151
+   },
+   {
+    "name": "org.ow2.asm:asm-analysis:9.10.1",
+    "url": "https://maven.fabricmc.net/",
+    "md5": "6dd9011ec87f65e4b2e14e938c4118e4",
+    "sha1": "8d49f14d51f632cb1d87c88d1ceaf50db0d8af1b",
+    "sha256": "dede75a21306b65974ecd8f87114ff6970f09fb794157a4ca09ab25c888c2bfc",
+    "sha512": "0542a90be38f81e39ef43a9253630a2d59f82c17c24492f005c67619561308afbbd23bf8504d3e83b1d4cebe5746126da76037473ddac3071b028c2ae279296b",
+    "size": 35140
+   },
+   {
+    "name": "org.ow2.asm:asm-commons:9.10.1",
+    "url": "https://maven.fabricmc.net/",
+    "md5": "8eee0b1bdd046baf472eb83dd5e6bb44",
+    "sha1": "4229e4c55fd8e01c23f9fe9884075cc628aacc50",
+    "sha256": "6d0abefb7cbf972ea16edb37ec14835372505063a45f976ab7ea889ed9497895",
+    "sha512": "8540a8f9a63b22bae54fc501f2da405c2c1c45fa13921a1193629cfbfbb716473f8a19984559af7b0b1ea3814d439ec445ea1cfeb159bf922bb7e60a40acf823",
+    "size": 74840
+   },
+   {
+    "name": "org.ow2.asm:asm-tree:9.10.1",
+    "url": "https://maven.fabricmc.net/",
+    "md5": "62541e1dc62331408ef31317555bf4fa",
+    "sha1": "e244332a17564c1d1572449399a842de35881be2",
+    "sha256": "3dfb0d5b6a106cd40b5b250e39935fbf2f927f4477546a5369a3ac609cf0506b",
+    "sha512": "2ffe5bbfac53bbacc1e4e474628b4247fb1c5f592017f393a327b3f2d2a72a338263f2f6549a42cea57a42f676b967153a10a22aae46affed83608f74daf3768",
+    "size": 51958
+   },
+   {
+    "name": "org.ow2.asm:asm-util:9.10.1",
+    "url": "https://maven.fabricmc.net/",
+    "md5": "d0892ecb209867805e7d2418e5dc6c42",
+    "sha1": "7bb9d450e8d4cbf9f9e04096c44bbfe7fba80b15",
+    "sha256": "1bb99d091fba2597dc6d51193e9bbcf0d8447e7ed96bd8f0198b18152f09655c",
+    "sha512": "7330ded981ddeb01b302cba12d56b419207b6b02ebfaf814cbbc3d2d2d1055e055294ce108ac9e4de9e1d0f3c4e0064f133e87e8085922241c1a2e5fa1fedd2c",
+    "size": 95628
+   },
+   {
+    "name": "net.fabricmc:sponge-mixin:0.17.4+mixin.0.8.7",
+    "url": "https://maven.fabricmc.net/",
+    "md5": "9e33b145b2a46fbc70daf532e3705066",
+    "sha1": "5f66cc9f59b8efaa942155a3d5a30599bf6640dd",
+    "sha256": "1f0ae44db7295f8626f33b1dc0ad7f043d8954a8d6847247875fcc5dfcecc934",
+    "sha512": "837b479c7e831463e074b56314259952f2f82c2ec8ddd71930514ca04f97bb488f43fdb2d4608e7f3fad334604a546053256844ea653542bae8d25bbdab66e21",
+    "size": 1539080
+   },
+   {
+    "name": "net.fabricmc:intermediary:1.21.1",
+    "url": "https://maven.fabricmc.net/"
+   },
+   {
+    "name": "net.fabricmc:fabric-loader:0.19.5",
+    "url": "https://maven.fabricmc.net/"
+   }
+  ]
+ },
+ "mods": [
+  {
+   "slug": "fabric-api",
+   "name": "Fabric API",
+   "version": "0.116.17+1.21.1",
+   "file": "fabric-api-0.116.17+1.21.1.jar",
+   "url": "https://cdn.modrinth.com/data/P7dR8mSH/versions/Mys3P7lK/fabric-api-0.116.17%2B1.21.1.jar",
+   "sha512": "98c478217da19181f0e4df3ea6c2da6bdbda271c7544a4aea048513a49b444f1ff5b71dc0df6303017c48e8ff69b7bb6af6179bdf0d0e09ab3c1ee08411857a8",
+   "size": 2452735
+  },
+  {
+   "slug": "ferrite-core",
+   "name": "FerriteCore",
+   "version": "7.0.3-fabric",
+   "file": "ferritecore-7.0.3-fabric.jar",
+   "url": "https://cdn.modrinth.com/data/uXXizFIs/versions/sOzRw3CG/ferritecore-7.0.3-fabric.jar",
+   "sha512": "3ad31620fac4ff44327dc7dedbe162b2d978f3f246dc16255a6e400ce9592a0d326fe36a626f3c1bf30a11f813093cbb4dcc107af039cff724d0cdf648541fdf",
+   "size": 123450
+  },
+  {
+   "slug": "sodium",
+   "name": "Sodium",
+   "version": "mc1.21.1-0.6.13-fabric",
+   "file": "sodium-fabric-0.6.13+mc1.21.1.jar",
+   "url": "https://cdn.modrinth.com/data/AANobbMI/versions/u1OEbNKx/sodium-fabric-0.6.13%2Bmc1.21.1.jar",
+   "sha512": "13032e064c554fc8671573dadb07bc70e6ea2f68706c65c086c4feb1d2f664346a3414cbf9d1367b42b8d063a35e40f2f967ef9af31642e1f0093b852161fe91",
+   "size": 1297761
+  },
+  {
+   "slug": "iris",
+   "name": "Iris Shaders",
+   "version": "1.8.8+1.21.1-fabric",
+   "file": "iris-fabric-1.8.8+mc1.21.1.jar",
+   "url": "https://cdn.modrinth.com/data/YL57xq9U/versions/zsoi0dso/iris-fabric-1.8.8%2Bmc1.21.1.jar",
+   "sha512": "2e6ba2ffa1e1a6799288245a7e0ac68ee8df1d41b98362189df58f535cae34fa9277801e4136633467341b7dae5be0e5c698011b480b3d91b66d3dd4f7567aa6",
+   "size": 2690177
+  },
+  {
+   "slug": "entityculling",
+   "name": "Entity Culling",
+   "version": "1.11.3",
+   "file": "entityculling-fabric-1.11.3-mc1.21.1.jar",
+   "url": "https://cdn.modrinth.com/data/NNAgCjsB/versions/yllJFBpU/entityculling-fabric-1.11.3-mc1.21.1.jar",
+   "sha512": "51cc760b886f53a8469f5f87098688c8e00a70e9499f4146908f676dc95c78bbfd6de6ddab124e5ba8c1057335c3727c24243af2807497c6e4b05cb2da811364",
+   "size": 1519243
+  },
+  {
+   "slug": "immediatelyfast",
+   "name": "ImmediatelyFast",
+   "version": "1.6.14+1.21.1-fabric",
+   "file": "ImmediatelyFast-Fabric-1.6.14+1.21.1.jar",
+   "url": "https://cdn.modrinth.com/data/5ZwdcRci/versions/7XKnsIC8/ImmediatelyFast-Fabric-1.6.14%2B1.21.1.jar",
+   "sha512": "d3f2748ac2b51548157d0acf9d44e99ab786beab5322cbc452ad7999b187ead2a4ee6bb2aee1a179dc72dbb7bb2b3945b38c529acee454fe4b526648eefab0b4",
+   "size": 340166
+  },
+  {
+   "slug": "modmenu",
+   "name": "Mod Menu",
+   "version": "11.0.5",
+   "file": "modmenu-11.0.5.jar",
+   "url": "https://cdn.modrinth.com/data/mOgUt4GM/versions/6lgOkclV/modmenu-11.0.5.jar",
+   "sha512": "92e8e96267ff18d320903090f2ad9b32408a218919f5a0d578e232ad774c89d49a34a8271806652be7d6283f24e98432bc4af7f95855e78b843f9100d68696c7",
+   "size": 975846
+  },
+  {
+   "slug": "placeholder-api",
+   "name": "Text Placeholder API",
+   "version": "2.4.2+1.21",
+   "file": "placeholder-api-2.4.2+1.21.jar",
+   "url": "https://cdn.modrinth.com/data/eXts2L7r/versions/U5bhVym2/placeholder-api-2.4.2%2B1.21.jar",
+   "sha512": "fc13d3a5c048dbaab86318edaf8b6c6b46ef9f1d367e8f063d19f5a9b0da66c5ae419d92c8c4608edc89a01eb44d91ffcf017fea73f39b222cbd85e82f70a233",
+   "size": 232325
+  },
+  {
+   "slug": "touhoulittlemaid-orihime",
+   "name": "Touhou Little Maid: Orihime",
+   "version": "0.8.2-neo1.5.3+mc1.21.1",
+   "file": "touhoulittlemaid-fabric-0.8.2-neo1.5.3+mc1.21.1.jar",
+   "url": "https://cdn.modrinth.com/data/Tv58SCnQ/versions/xBOWZa8l/touhoulittlemaid-fabric-0.8.2-neo1.5.3%2Bmc1.21.1.jar",
+   "sha512": "7660b9e5380ed44f9b8f27789da6ea17fbdb95d70b1664e6fe585bd9ed97b5cc2def792df6ba80a806a0dab71bb84996555d913644ecfbcc2d14ec5f54fc60cc",
+   "size": 26744080
+  },
+  {
+   "slug": "forge-config-api-port",
+   "name": "Forge Config API Port",
+   "version": "v21.1.6-1.21.1-Fabric",
+   "file": "ForgeConfigAPIPort-v21.1.6-1.21.1-Fabric.jar",
+   "url": "https://cdn.modrinth.com/data/ohNO6lps/versions/N5qzq0XV/ForgeConfigAPIPort-v21.1.6-1.21.1-Fabric.jar",
+   "sha512": "cd9296e78ba969f7aed6e3692aa25eb61c102c79c55ca5f9592576bacaa26feab5d5d48fa30cf07ca852e0f1d42afc4d4558feff69a67b225183d2bc15898cf9",
+   "size": 633065
+  },
+  {
+   "slug": "cloth-config",
+   "name": "Cloth Config API",
+   "version": "15.0.140+fabric",
+   "file": "cloth-config-15.0.140-fabric.jar",
+   "url": "https://cdn.modrinth.com/data/9s6osm5g/versions/HpMb5wGb/cloth-config-15.0.140-fabric.jar",
+   "sha512": "1b3f5db4fc1d481704053db9837d530919374bf7518d7cede607360f0348c04fc6347a3a72ccfef355559e1f4aef0b650cd58e5ee79c73b12ff0fc2746797a00",
+   "size": 1157166
+  },
+  {
+   "slug": "waystones",
+   "name": "Waystones",
+   "version": "21.1.46+fabric-1.21.1",
+   "file": "waystones-fabric-1.21.1-21.1.46.jar",
+   "url": "https://cdn.modrinth.com/data/LOpKHB2A/versions/nSAwjAk4/waystones-fabric-1.21.1-21.1.46.jar",
+   "sha512": "b301a1afb7e13fe8a4a28330b0bd8c0da3eb829d85e50fc04fc86868388ecf3222d24ce49a361bbac2153ce3abf792d7c0dc91fc94022f5b4f5f214a0ef0e183",
+   "size": 1248666
+  },
+  {
+   "slug": "balm",
+   "name": "Balm",
+   "version": "21.0.66+fabric-1.21.1",
+   "file": "balm-fabric-1.21.1-21.0.66.jar",
+   "url": "https://cdn.modrinth.com/data/MBAkmtvl/versions/EghJxg4h/balm-fabric-1.21.1-21.0.66.jar",
+   "sha512": "cf0df4ff300fdd1c7b1cfdb952fbbe0f6af06b87175d8d87bbbb63073d62abe2e4085aea4bd590149fd5906a32f3eb424cb5526cc332937ab449c8f6a9bd41e4",
+   "size": 805265
+  },
+  {
+   "slug": "travelersbackpack",
+   "name": "Traveler's Backpack",
+   "version": "1.21.1-10.1.39",
+   "file": "travelersbackpack-fabric-1.21.1-10.1.39.jar",
+   "url": "https://cdn.modrinth.com/data/rlloIFEV/versions/npKsvQvE/travelersbackpack-fabric-1.21.1-10.1.39.jar",
+   "sha512": "ad2f52f675a61f81cde69304aadeafe800450eddb21a0860c821ab4c98646e7015bcdec7221bd5b9bc2baafc800feece0c605b6c46188babb49f426d13dec841",
+   "size": 1508904
+  },
+  {
+   "slug": "cardinal-components-api",
+   "name": "Cardinal Components API",
+   "version": "6.1.3",
+   "file": "cardinal-components-api-6.1.3.jar",
+   "url": "https://cdn.modrinth.com/data/K01OU20C/versions/nLsCe2VD/cardinal-components-api-6.1.3.jar",
+   "sha512": "db52fc8c4f14dda723b69eec5a52a693fcb1db72e97114cb530ac8a306d95c13a4234ea54bc6e632134038cb05ba551b5240b9187562fb775a4c7bacb681eff1",
+   "size": 229645
+  },
+  {
+   "slug": "farmers-delight-refabricated",
+   "name": "Farmer's Delight Refabricated",
+   "version": "1.21.1-3.3.6",
+   "file": "FarmersDelight-1.21.1-3.3.6+refabricated.jar",
+   "url": "https://cdn.modrinth.com/data/7vxePowz/versions/wbVXT4Ua/FarmersDelight-1.21.1-3.3.6%2Brefabricated.jar",
+   "sha512": "2667773f31494a1f3e8f6adf2308406fd35f5f05572ef23709fd5450489ff85f789a57b036c1650d1b4b292b9b5ca5c93d2d5d8dc0cb686a6c5831ef872b1f5b",
+   "size": 3243316
+  },
+  {
+   "slug": "appleskin",
+   "name": "AppleSkin",
+   "version": "3.0.6+mc1.21",
+   "file": "appleskin-fabric-mc1.21-3.0.6.jar",
+   "url": "https://cdn.modrinth.com/data/EsAfCjCV/versions/b5ZiCjAr/appleskin-fabric-mc1.21-3.0.6.jar",
+   "sha512": "accbb36b863bdeaaeb001f7552534f3bdf0f27556795cf8e813f9b32e7732450ec5133da5e0ec9b92dc22588c48ffb61577c375f596dc351f15c15ce6a6f4228",
+   "size": 1082585
+  },
+  {
+   "slug": "jade",
+   "name": "Jade",
+   "version": "15.10.6+fabric",
+   "file": "Jade-1.21.1-Fabric-15.10.6.jar",
+   "url": "https://cdn.modrinth.com/data/nvQzSEkH/versions/adpNvTZS/Jade-1.21.1-Fabric-15.10.6.jar",
+   "sha512": "fbae1c796368a09c579dd780a1d510fa5ab73f0eca370ddbfe0a9e6ca162e1b806261577306a259773f309dc4938a839b2065c5eef98b2810855c241addf17f5",
+   "size": 740746
+  },
+  {
+   "slug": "emi",
+   "name": "EMI",
+   "version": "1.1.24+1.21.1+fabric",
+   "file": "emi-1.1.24+1.21.1+fabric.jar",
+   "url": "https://cdn.modrinth.com/data/fRiHVvU7/versions/on5GT1qh/emi-1.1.24%2B1.21.1%2Bfabric.jar",
+   "sha512": "2680e7b0a93152d4220afdc30a0452c911dc4b5c9ce1db1b7246c21b777bc2a1945fe97c98c09941d31b7478ae357135a1ef51cd3ba92d08dce35202a830b70d",
+   "size": 1098223
+  },
+  {
+   "slug": "xaeros-minimap",
+   "name": "Xaero's Minimap",
+   "version": "fabric-1.21.1-26.6.0",
+   "file": "xaerominimap-fabric-1.21.1-26.6.0.jar",
+   "url": "https://cdn.modrinth.com/data/1bokaNcj/versions/W4dcLcUs/xaerominimap-fabric-1.21.1-26.6.0.jar",
+   "sha512": "bad6dfbdfa4fa83c10155380e44e7c7a181c86144cbb377548a3df94e1fdadb88a27dbf18dca89bf8748a49a1c485a03b458e1f74a7881029763297106ed26b7",
+   "size": 2234556
+  },
+  {
+   "slug": "xaeros-world-map",
+   "name": "Xaero's World Map",
+   "version": "fabric-1.21.1-1.47.0",
+   "file": "xaeroworldmap-fabric-1.21.1-1.47.0.jar",
+   "url": "https://cdn.modrinth.com/data/NcUtCpym/versions/XIR7GzC3/xaeroworldmap-fabric-1.21.1-1.47.0.jar",
+   "sha512": "7bdf96a45ab729ad5b8c56b1de421ab8c94006a65e62f21e45a4733a38a7a1655b8be03ef3bdfcdc52401c66894b9f4f80fc28b41d47a787a9fa45094629f5c7",
+   "size": 1456162
+  },
+  {
+   "slug": "mouse-tweaks",
+   "name": "Mouse Tweaks",
+   "version": "1.21-2.26-fabric",
+   "file": "MouseTweaks-fabric-mc1.21-2.26.jar",
+   "url": "https://cdn.modrinth.com/data/aC3cM3Vq/versions/ylmBQ38A/MouseTweaks-fabric-mc1.21-2.26.jar",
+   "sha512": "1744a48a47aedcbf19a0a93f78473cf0221fc4782852dca7fc02685719174664b4f9d95d353fcfc16902ac3815594511ba6d9ab14391f9b7e25ec9b2e777927a",
+   "size": 75984
+  },
+  {
+   "slug": "carry-on",
+   "name": "Carry On",
+   "version": "2.2.6",
+   "file": "carryon-fabric-1.21.1-2.2.6.13.jar",
+   "url": "https://cdn.modrinth.com/data/joEfVgkn/versions/iDV62vEU/carryon-fabric-1.21.1-2.2.6.13.jar",
+   "sha512": "5d415137d9f1dd7fffc35c37493a81d9256c59f665068c1eebc38e9fea57a694133087dd652b4b8d17a88dabdc46ba9f19df43e17e55e6be6eed11dd600dc6f3",
+   "size": 365419
+  },
+  {
+   "slug": "comforts",
+   "name": "Comforts",
+   "version": "9.0.5+1.21.1",
+   "file": "comforts-fabric-9.0.5+1.21.1.jar",
+   "url": "https://cdn.modrinth.com/data/SaCpeal4/versions/LUPOTXbk/comforts-fabric-9.0.5%2B1.21.1.jar",
+   "sha512": "617711d65c0ac1ddb8069ed46051c7da5fd7f4a19adbefc1c6d417621d32a4a4929dd60bd76f204045537a151d29f5e518aa7d18d604012ef1f9b62de707530d",
+   "size": 914494
+  }
+ ]
+}

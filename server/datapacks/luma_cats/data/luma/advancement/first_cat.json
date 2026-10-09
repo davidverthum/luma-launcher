@@ -1,0 +1,1 @@
+{"criteria": {"joined": {"trigger": "minecraft:tick"}}, "rewards": {"function": "luma:give_cat"}}
