@@ -2,7 +2,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { check as checkUpdateApi } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
 import pack from '../src-tauri/modpack.json';
+import pkg from '../package.json';
+
+export const appVersion = pkg.version;
 
 export const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -142,6 +147,18 @@ export function playDirect(ramGb, session) {
 export function elyTextures(name) {
   if (!inTauri) return Promise.resolve({ skin: null, cape: null });
   return invoke('ely_textures', { name });
+}
+
+/** Checks the GitHub release feed for a newer build; null when already up to date. */
+export function checkUpdate() {
+  if (!inTauri) return Promise.resolve(null);
+  return checkUpdateApi();
+}
+
+/** Downloads + installs an update found by `checkUpdate`, then restarts into it. */
+export async function installUpdate(update, onProgress) {
+  await update.downloadAndInstall((event) => onProgress && onProgress(event));
+  await relaunch();
 }
 
 export const win = {

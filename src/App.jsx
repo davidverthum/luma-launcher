@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RealmRail, TitleBar, CommandPalette, Toast, Button, VoxelArt } from './ds/index.js';
-import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh } from './native.js';
+import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion } from './native.js';
 import { useServer, liveRealm } from './server.js';
 import Login from './screens/Login.jsx';
 import Home from './screens/Home.jsx';
@@ -91,6 +91,23 @@ export default function App() {
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mcToken]);
+
+  useEffect(() => {
+    let alive = true;
+    checkUpdate().then((upd) => {
+      if (!alive || !upd) return;
+      notify({
+        icon: 'download', title: 'Доступно обновление ' + upd.version, duration: 0,
+        body: 'Сейчас установлена ' + appVersion + '. Лаунчер скачает и установит новую версию, затем перезапустится.',
+        actions: [{ label: 'Установить', icon: 'download', variant: 'luma', run: () => {
+          notify({ icon: 'download', title: 'Устанавливаем ' + upd.version, body: 'Не закрывай лаунчер…', duration: 0 });
+          installUpdate(upd).catch((e) => notify({ tone: 'danger', icon: 'close', title: 'Не получилось обновиться', body: String((e && e.message) || e), duration: 10000 }));
+        } }],
+      });
+    }).catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const notify = useCallback((t) => {
     const id = ++toastSeq;
