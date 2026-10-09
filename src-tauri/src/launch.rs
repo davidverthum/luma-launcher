@@ -16,6 +16,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 const MANIFEST_URL: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 const INJECTOR_RELEASE_API: &str = "https://api.github.com/repos/yushijinhun/authlib-injector/releases/latest";
+const JAVA_RUNTIME_MANIFEST_URL: &str = "https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
 
 fn os_name() -> &'static str {
     if cfg!(target_os = "macos") { "osx" } else if cfg!(target_os = "windows") { "windows" } else { "linux" }
@@ -272,6 +273,87 @@ async fn ensure_injector(client: &reqwest::Client, app: &AppHandle) -> Result<Pa
     Ok(dest)
 }
 
+// ── Java runtime (Mojang's own managed JRE — the same one the official launcher uses, so
+// players never need Java installed or JAVA_HOME set themselves) ──────────────────────────
+
+fn java_platform() -> &'static str {
+    if cfg!(target_os = "macos") {
+        if cfg!(target_arch = "aarch64") { "mac-os-arm64" } else { "mac-os" }
+    } else if cfg!(target_os = "windows") {
+        if cfg!(target_arch = "aarch64") { "windows-arm64" } else { "windows-x64" }
+    } else if cfg!(target_arch = "x86") {
+        "linux-i386"
+    } else {
+        "linux"
+    }
+}
+
+/// The `java` binary's path relative to the runtime root — Mojang packages macOS as a
+/// `.bundle`, everyone else flat under `bin/`.
+fn java_binary_rel() -> &'static str {
+    if cfg!(target_os = "macos") { "jre.bundle/Contents/Home/bin/java" } else if cfg!(target_os = "windows") { "bin/java.exe" } else { "bin/java" }
+}
+
+/// Downloads Mojang's managed JRE for `component` (e.g. `java-runtime-delta`, from the
+/// version JSON's `javaVersion.component`) and returns the path to its `java` binary.
+/// Cached under the app data dir; a no-op once already downloaded.
+async fn ensure_java(client: &reqwest::Client, app: &AppHandle, component: &str) -> Result<PathBuf, String> {
+    let root = app.path().app_data_dir().map_err(|e| e.to_string())?.join("java").join(component);
+    let java_bin = root.join(java_binary_rel());
+    if java_bin.exists() {
+        return Ok(java_bin);
+    }
+    emit(app, "java", 0, 1, "Mojang Java");
+    let all = fetch_json(client, JAVA_RUNTIME_MANIFEST_URL).await.map_err(|e| format!("манифест Java: {e}"))?;
+    let manifest_url = all[java_platform()][component][0]["manifest"]["url"].as_str()
+        .ok_or_else(|| format!("нет рантайма Java {component} для {}", java_platform()))?.to_string();
+    let manifest = fetch_json(client, &manifest_url).await.map_err(|e| format!("манифест Java: {e}"))?;
+    let files = manifest["files"].as_object().cloned().ok_or("пустой манифест Java")?;
+    let total = files.len();
+    for (i, (rel, entry)) in files.iter().enumerate() {
+        if i % 20 == 0 || i + 1 == total {
+            emit(app, "java", i, total, rel);
+        }
+        let dest = root.join(rel);
+        match entry["type"].as_str() {
+            Some("directory") => {
+                fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+            }
+            Some("file") => {
+                let raw = &entry["downloads"]["raw"];
+                let url = raw["url"].as_str().ok_or("файл Java без url")?;
+                let sha1 = raw["sha1"].as_str();
+                download_checked(client, url, &dest, sha1).await.map_err(|e| format!("java {rel}: {e}"))?;
+                #[cfg(unix)]
+                if entry["executable"].as_bool() == Some(true) {
+                    use std::os::unix::fs::PermissionsExt;
+                    if let Ok(meta) = fs::metadata(&dest) {
+                        let mut perm = meta.permissions();
+                        perm.set_mode(perm.mode() | 0o111);
+                        let _ = fs::set_permissions(&dest, perm);
+                    }
+                }
+            }
+            #[cfg(unix)]
+            Some("link") => {
+                if let Some(target) = entry["target"].as_str() {
+                    if let Some(dir) = dest.parent() {
+                        fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+                    }
+                    let _ = fs::remove_file(&dest);
+                    std::os::unix::fs::symlink(target, &dest).map_err(|e| format!("symlink {rel}: {e}"))?;
+                }
+            }
+            _ => {}
+        }
+    }
+    emit(app, "java", total, total, "");
+    if !java_bin.exists() {
+        return Err("скачали Java, но не нашли бинарник java — сообщи об этом".into());
+    }
+    Ok(java_bin)
+}
+
 // ── argument templating ─────────────────────────────────────────────────────
 
 fn substitute(template: &str, map: &HashMap<&str, String>) -> String {
@@ -310,10 +392,11 @@ fn classpath(libs: &[PathBuf], client_jar: &Path) -> String {
 
 // ── entry point ──────────────────────────────────────────────────────────────
 
-/// Downloads everything a direct launch needs and starts `java`, handing the game an
-/// Ely.by session through authlib-injector instead of a Microsoft login. Never blocks on
-/// the game process — once it's spawned, this returns.
-pub async fn play(app: &AppHandle, java_path: &Path, ram_gb: u32, session: &Session, instance: &Path) -> Result<(), String> {
+/// Downloads everything a direct launch needs — including Java itself, Mojang's own managed
+/// runtime, so players never install anything — and starts the game, handing it an Ely.by
+/// session through authlib-injector instead of a Microsoft login. Never blocks on the game
+/// process — once it's spawned, this returns.
+pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Path) -> Result<(), String> {
     let client = game::http()?;
     let pack: &Modpack = game::modpack();
 
@@ -321,6 +404,9 @@ pub async fn play(app: &AppHandle, java_path: &Path, ram_gb: u32, session: &Sess
     let vanilla = vanilla_version(&client, &game::minecraft_dir(app)?, &pack.minecraft).await?;
     let merged = merge_fabric(&vanilla, &pack.profile);
     emit(app, "version", 1, 1, "");
+
+    let java_component = merged["javaVersion"]["component"].as_str().unwrap_or("java-runtime-delta").to_string();
+    let java_path = ensure_java(&client, app, &java_component).await?;
 
     let mc = game::minecraft_dir(app)?;
     let client_jar = download_client_jar(app, &client, &mc, &merged).await?;

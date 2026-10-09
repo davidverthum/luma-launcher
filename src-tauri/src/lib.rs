@@ -8,12 +8,7 @@ mod nbt;
 mod slp;
 
 use serde::{Deserialize, Serialize};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
-    time::Duration,
-};
+use std::{fs, path::PathBuf, process::Command, time::Duration};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 
@@ -304,11 +299,9 @@ async fn ely_textures(name: String) -> Result<elyby::Textures, String> {
 #[tauri::command]
 async fn play_direct(app: AppHandle, ram_gb: u32, session: elyby::Session) -> Result<(), String> {
     let ram_gb = if ram_gb == 0 { auto_ram_gb() } else { ram_gb };
-    let java = detect_java();
-    let java_path = java.path.ok_or("Java не найдена — поставь Java 21 и укажи JAVA_HOME в настройках системы")?;
     let instance = game::instance_dir(&app)?;
     game::sync_mods(&app, game::modpack(), &instance).await?;
-    launch::play(&app, Path::new(&java_path), ram_gb, &session, &instance).await
+    launch::play(&app, ram_gb, &session, &instance).await
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
