@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Luma",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "gg.luma.launcher",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -37,6 +37,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "category": "Game",
     "shortDescription": "Лаунчер сети Minecraft-серверов Luma",
     "longDescription": "Luma — лаунчер сети Minecraft-серверов: пять миров, у каждого свой свет, друзья и пати до запуска.",
