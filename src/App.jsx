@@ -105,9 +105,13 @@ export default function App() {
     let alive = true;
     checkUpdate(settings.updateChannel).then((upd) => {
       if (!alive || !upd) return;
+      const switching = upd.channel !== upd.from_channel;
       notify({
-        icon: 'download', title: 'Доступно обновление ' + upd.version + ' · ' + channelLabel(upd.channel), duration: 0,
-        body: 'Сейчас установлена ' + appVersion + '. Лаунчер скачает и установит новую версию, затем перезапустится.',
+        icon: 'download', duration: 0,
+        title: switching ? 'Переход на ветку «' + channelLabel(upd.channel) + '» · ' + upd.version : 'Доступно обновление ' + upd.version,
+        body: switching
+          ? 'Сейчас стоит ' + appVersion + ' из ветки «' + channelLabel(upd.from_channel) + '». Лаунчер поставит ветку «' + channelLabel(upd.channel) + '» и перезапустится.'
+          : 'Сейчас установлена ' + appVersion + '. Лаунчер скачает и установит новую версию, затем перезапустится.',
         actions: [{ label: 'Установить', icon: 'download', variant: 'luma', run: () => {
           notify({ icon: 'download', title: 'Устанавливаем ' + upd.version, body: 'Не закрывай лаунчер…', duration: 0 });
           installUpdate(upd).catch((e) => notify({ tone: 'danger', icon: 'close', title: 'Не получилось обновиться', body: String((e && e.message) || e), duration: 10000 }));

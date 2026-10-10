@@ -31,6 +31,8 @@ struct Asset {
 #[derive(Serialize)]
 pub struct UpdateInfo {
     channel: String,
+    /// The running build's channel — differs from `channel` when the player switched.
+    from_channel: &'static str,
     version: String,
     current_version: String,
     notes: Option<String>,
@@ -86,7 +88,13 @@ async fn find(app: &AppHandle, channel: Option<&str>) -> Result<(String, Option<
 
 pub async fn check(app: &AppHandle, channel: Option<&str>) -> Result<Option<UpdateInfo>, String> {
     let (channel, update) = find(app, channel).await?;
-    Ok(update.map(|u| UpdateInfo { channel, version: u.version.clone(), current_version: u.current_version.clone(), notes: u.body.clone() }))
+    Ok(update.map(|u| UpdateInfo {
+        channel,
+        from_channel: BUILD_CHANNEL,
+        version: u.version.clone(),
+        current_version: u.current_version.clone(),
+        notes: u.body.clone(),
+    }))
 }
 
 /// Checks again (the found update isn't kept between calls), then downloads and installs it.
