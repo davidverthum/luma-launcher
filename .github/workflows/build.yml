@@ -1,11 +1,17 @@
 # Builds Luma on native runners: macOS universal .dmg, Windows .exe (NSIS), Linux .deb/.rpm/.AppImage.
 # Run it from the Actions tab (Run workflow) or push a tag like v0.1.0. Files land in the run's artifacts.
+# Two update channels: tags v* release «Юг» (main); tags sever-v* release «Север» (the sever branch)
+# as prereleases, so the repo's "latest" release — what older launchers follow — stays Юг.
 name: build
 
 on:
   workflow_dispatch:
   push:
-    tags: ['v*']
+    tags: ['v*', 'sever-v*']
+
+env:
+  # Baked into the app (updates.rs): which channel this build belongs to.
+  LUMA_CHANNEL: ${{ startsWith(github.ref_name, 'sever') && 'sever' || 'yug' }}
 
 jobs:
   build:
@@ -86,5 +92,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'Luma ${{ github.ref_name }}'
+          releaseName: ${{ env.LUMA_CHANNEL == 'sever' && format('Luma Север {0}', github.ref_name) || format('Luma {0}', github.ref_name) }}
+          prerelease: ${{ env.LUMA_CHANNEL == 'sever' }}
           args: ${{ matrix.args }}

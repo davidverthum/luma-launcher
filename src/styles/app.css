@@ -158,6 +158,8 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 .st-account-name { display: flex; align-items: center; gap: 10px; }
 .st-about { max-width: 720px; display: flex; flex-direction: column; gap: 8px; }
 .st-about p { margin: 0; }
+.st-channel { align-items: flex-start; }
+.st-channel .caption { color: var(--ink-2); }
 
 /* ---------- login ---------- */
 .lg { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--surface-0); }
