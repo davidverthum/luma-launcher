@@ -8,6 +8,7 @@ import Realms from './screens/Realms.jsx';
 import Wardrobe from './screens/Wardrobe.jsx';
 import Store from './screens/Store.jsx';
 import News from './screens/News.jsx';
+import MapScreen from './screens/Map.jsx';
 import Settings from './screens/Settings.jsx';
 
 const DEFAULTS = {
@@ -57,7 +58,7 @@ function useThemeMode(mode) {
 }
 
 let toastSeq = 0;
-const NAV = [{ id: 'home', label: 'Главная' }, { id: 'realms', label: 'Сервер' }, { id: 'wardrobe', label: 'Гардероб' }, { id: 'news', label: 'Новости' }];
+const NAV = [{ id: 'home', label: 'Главная' }, { id: 'realms', label: 'Сервер' }, { id: 'map', label: 'Карта' }, { id: 'wardrobe', label: 'Гардероб' }, { id: 'news', label: 'Новости' }];
 const RAIL_FOOTER = [{ id: 'settings', icon: 'settings', label: 'Настройки' }];
 
 export default function App() {
@@ -150,6 +151,7 @@ export default function App() {
       { id: 'ram', icon: 'chip', label: 'Настроить память', hint: (settings && settings.ram[realm.id] ? settings.ram[realm.id] + ' ГБ' : 'авто'), keywords: 'память ram оперативная', run: () => setRoute('settings') },
       { id: 'theme', icon: 'sparkle', label: 'Сменить тему', hint: 'ночь · день · по циклу дня', keywords: 'тема темная светлая', run: () => update((s) => ({ ...s, theme: s.theme === 'night' ? 'day' : s.theme === 'day' ? 'auto' : 'night' })) },
       { id: 'wardrobe', icon: 'shirt', label: 'Гардероб', hint: 'скины и плащи', run: () => setRoute('wardrobe') },
+      { id: 'map', icon: 'pin', label: 'Карта', hint: 'живая 3D-карта сервера', run: () => setRoute('map') },
     ] },
     { group: 'Сервер', items: [
       { id: 'copy', icon: 'globe', label: 'Скопировать адрес сервера', hint: modpack.server.address, keywords: 'адрес ip айпи', run: copyAddress },
@@ -174,6 +176,7 @@ export default function App() {
     wardrobe: <Wardrobe {...screenProps} />,
     store: <Store {...screenProps} />,
     news: <News {...screenProps} />,
+    map: <MapScreen {...screenProps} />,
     settings: <Settings {...screenProps} />,
   };
 
@@ -189,7 +192,7 @@ export default function App() {
         <RealmRail realms={[realm]} value={realm.id} onChange={() => setRoute('home')} footer={RAIL_FOOTER} onFooter={(id) => setRoute(id)} />
       </div>
       <div className="app-top">
-        <TitleBar nav={NAV} active={['home', 'realms', 'wardrobe', 'news'].includes(route) ? route : 'none'} onNav={setRoute}
+        <TitleBar nav={NAV} active={['home', 'realms', 'map', 'wardrobe', 'news'].includes(route) ? route : 'none'} onNav={setRoute}
           user={{ name: settings.profile.name, rank: settings.profile.rank }} balance={null} notifications={0}
           onSearch={() => setPalette(true)} onAccount={() => setRoute('settings')}
           onNotifications={() => notify({ icon: 'bell', title: server && server.online ? 'Сервер работает' : 'Сервер не отвечает', body: server && server.online ? 'Онлайн ' + server.players + ' из ' + server.max + ' · ' + modpack.server.address : 'Проверим ещё раз через полминуты.' })}

@@ -7,7 +7,8 @@
  },
  "server": {
   "name": "Luma",
-  "address": "x1.qwertyx.host:28828"
+  "address": "x1.qwertyx.host:28828",
+  "map": "http://x1.qwertyx.host:29603"
  },
  "auth": {
   "url": "http://localhost:8787"
