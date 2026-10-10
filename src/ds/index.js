@@ -4,7 +4,7 @@ export { VoxelArt } from './voxel.jsx';
 export { LumaMark, Logo } from './logo.jsx';
 export { Button, IconButton, Spinner, Kbd, Tag, StatusPill, StatusMark, RankBadge, Toggle, Slider, Input, Tabs } from './controls.jsx';
 export { Led, Sparkline, StatTile, useDrift, formatLed } from './led.jsx';
-export { PlayerHead, HeadStack } from './head.jsx';
+export { PlayerHead, HeadStack, setSkinResolver } from './head.jsx';
 export { SkinViewer, defaultSkin, defaultCape } from './skin.jsx';
 export { PlayButton } from './play.jsx';
 export { REALMS, realmById, RealmCard, RealmRail, Ping } from './realm.jsx';

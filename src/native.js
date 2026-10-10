@@ -148,6 +148,21 @@ export function elyTextures(name) {
   return invoke('ely_textures', { name });
 }
 
+const SKIN_TTL = 10 * 60 * 1000;
+const skinCache = new Map(); // lower-case nick → { at, promise }
+
+/** Any player's Ely.by skin as a data URI, or null (no skin, offline, browser preview).
+ * Cached for 10 minutes so a list re-render doesn't refetch; a changed skin shows up after that. */
+export function skinFor(name) {
+  if (!inTauri || !name) return Promise.resolve(null);
+  const key = String(name).toLowerCase();
+  const hit = skinCache.get(key);
+  if (hit && Date.now() - hit.at < SKIN_TTL) return hit.promise;
+  const promise = invoke('ely_skin', { name }).catch(() => null);
+  skinCache.set(key, { at: Date.now(), promise });
+  return promise;
+}
+
 /** The curated shader packs ({ slug, name, tier, ... }) — same list for everyone. */
 export function listShaders() {
   return inTauri ? invoke('list_shaders') : Promise.resolve([]);

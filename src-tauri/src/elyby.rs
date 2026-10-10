@@ -104,6 +104,11 @@ pub async fn textures(client: &reqwest::Client, name: &str) -> Textures {
     Textures { skin, cape }
 }
 
+/// Just the skin — for the small heads in player lists, where the cape isn't needed.
+pub async fn skin(client: &reqwest::Client, name: &str) -> Option<String> {
+    fetch_texture_data_uri(client, format!("https://skinsystem.ely.by/skins/{}.png", urlencoding_minimal(name))).await
+}
+
 /// Minimal percent-encoding for a path segment, byte-wise (so multi-byte UTF-8 stays correct).
 /// Nicknames are already Yggdrasil-safe (letters, digits, `_`); this is just a defensive fallback.
 fn urlencoding_minimal(s: &str) -> String {

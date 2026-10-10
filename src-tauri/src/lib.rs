@@ -300,6 +300,13 @@ async fn ely_textures(name: String) -> Result<elyby::Textures, String> {
     Ok(elyby::textures(&client, &name).await)
 }
 
+/// Any player's Ely.by skin as a data URI (None: no skin set) — the heads in player lists.
+#[tauri::command]
+async fn ely_skin(name: String) -> Result<Option<String>, String> {
+    let client = game::http()?;
+    Ok(elyby::skin(&client, &name).await)
+}
+
 /// Syncs mods, then launches Minecraft directly (no official launcher) using an Ely.by
 /// session so non-premium accounts can join the server. Progress goes out as `luma://progress`.
 #[tauri::command]
@@ -471,6 +478,7 @@ pub fn run() {
             ely_login,
             ely_refresh,
             ely_textures,
+            ely_skin,
             play_direct,
             list_shaders,
             list_local_mods,

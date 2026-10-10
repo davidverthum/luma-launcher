@@ -93,14 +93,25 @@ function FaceSvg({ px }) {
   );
 }
 
+let skinResolver = null;
+/** Lets the app supply real skins: `fn(name) → Promise<skin texture URL | null>`. Heads without a
+ * `skin` prop then show that player's real face, and the generated one until it arrives. */
+export function setSkinResolver(fn) { skinResolver = fn; }
+
 /** PlayerHead — size 24 · 32 · 40 · 56 · 80. status adds a pixel mark; `color` tints an in-game mark. */
 export function PlayerHead({ name = 'Player', skin, size = 32, status, color, ring = false, className, style, title }) {
   const gen = useMemo(() => faceFor(name), [name]);
-  const [fromSkin, setFromSkin] = useState(null);
-  useEffect(() => { let on = true; if (skin) faceFromSkin(skin).then((p) => on && setFromSkin(p)).catch(() => {}); return () => { on = false; }; }, [skin]);
+  const key = skin || 'name:' + name;
+  const [real, setReal] = useState(null); // { key, px } — tied to the skin/name it was cut from
+  useEffect(() => {
+    let on = true;
+    const src = skin ? Promise.resolve(skin) : skinResolver ? skinResolver(name) : null;
+    if (src) src.then((s) => (s ? faceFromSkin(s) : null)).then((px) => { if (on && px) setReal({ key, px }); }).catch(() => {});
+    return () => { on = false; };
+  }, [key]);
   return (
     <span className={cx('lm-head', ring && 'lm-head--ring', size <= 24 && 'lm-head--xs', className)} style={{ '--head': size + 'px', ...(color ? { '--status-color': color } : null), ...style }} title={title || name} role="img" aria-label={name}>
-      <span className="lm-head-face"><FaceSvg px={fromSkin || gen} /></span>
+      <span className="lm-head-face"><FaceSvg px={real && real.key === key ? real.px : gen} /></span>
       {status ? <StatusMark status={status} color={color} className="lm-head-mark" /> : null}
     </span>
   );
