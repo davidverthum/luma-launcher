@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { PlayButton, IconButton, Tag, Led, Ping, HeadStack, Emblem, FriendRow, Icon } from '../ds/index.js';
+import { PlayButton, IconButton, Tag, Led, Ping, HeadStack, Emblem, FriendRow, Icon, Sparkline } from '../ds/index.js';
+import { onlineHistory } from '../server.js';
 import { inTauri, modpack, onProgress, playDirect, screenshotSrc } from '../native.js';
 import { useScreenshots, shotCount, dayLabel, timeLabel } from '../shots.js';
 
@@ -45,6 +46,7 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
   const here = (known && server.sample) || [];
   const [shots] = useScreenshots();
   const latest = shots && shots[0];
+  const day = onlineHistory(); // re-read on each status poll (the server prop changes)
 
   const STAGE_LABEL = { mods: 'Моды', version: 'Версия игры', client: 'Клиент', libraries: 'Библиотеки', assets: 'Ресурсы', launch: 'Запуск' };
 
@@ -138,6 +140,12 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
             </div>
           )}
         </div>
+        {day.values.length >= 2 ? (
+          <div className="side-chart">
+            <div className="side-chart-head caption"><span>Онлайн за сутки</span><span>пик <b>{day.peak}</b></span></div>
+            <Sparkline data={day.values} width={236} height={40} label={'Онлайн за сутки, пик ' + day.peak} />
+          </div>
+        ) : null}
         <p className="caption side-foot">{known ? 'Проверено в ' + new Date(server.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) + ' · обновляется каждые 30 с' : ''}</p>
       </aside>
     </div>

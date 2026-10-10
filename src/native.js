@@ -60,6 +60,9 @@ export const modpack = {
   totalMb: Math.round(pack.mods.reduce((a, m) => a + m.size, 0) / 1e5) / 10,
 };
 
+/** The pack's mods with their Modrinth slugs (for icons and links). */
+export const packMods = pack.mods.map((m) => ({ slug: m.slug, name: m.name, version: m.version }));
+
 /** Live server status. The app pings the server itself; the browser preview asks a public status API. */
 export async function serverStatus() {
   if (inTauri) {
@@ -168,9 +171,33 @@ export function listShaders() {
   return inTauri ? invoke('list_shaders') : Promise.resolve([]);
 }
 
-/** Jars in the instance's mods/ folder that aren't part of the pinned pack. */
+/** The player's own mods in mods/ (not part of the pinned pack): [{ file, enabled }]. */
 export function listLocalMods() {
   return inTauri ? invoke('list_local_mods') : Promise.resolve([]);
+}
+
+/** Switches a player's mod on or off without deleting it. */
+export function setLocalModEnabled(filename, enabled) {
+  return inTauri ? invoke('set_local_mod_enabled', { filename, enabled }) : Promise.reject(new Error('Только в приложении.'));
+}
+
+let cardsPromise = null;
+/** Modrinth titles, descriptions and icons: { pack: { slug: card }, local: { file: card } }.
+ * Cached for the session; `fresh` refetches (after adding a mod). */
+export function modCards(fresh) {
+  if (!inTauri) return Promise.resolve({ pack: {}, local: {} });
+  if (!cardsPromise || fresh) cardsPromise = invoke('mod_cards').catch(() => { cardsPromise = null; return { pack: {}, local: {} }; });
+  return cardsPromise;
+}
+
+export const openCrashDir = () => (inTauri ? invoke('open_crash_dir') : Promise.resolve(null));
+
+/** `cb({ code, report, summary, details, suspects })` when Minecraft quits badly. Returns the unsubscribe. */
+export const onGameCrash = (cb) => (inTauri ? listen('luma://game-crash', (e) => cb(e.payload)) : Promise.resolve(() => {}));
+
+/** A system notification — for when the launcher window isn't in front. */
+export function notifySystem(title, body) {
+  return inTauri ? invoke('notify_system', { title, body }).catch(() => {}) : Promise.resolve();
 }
 
 /** Copies a jar (a real filesystem path, e.g. from a window drag-drop event) into mods/. */

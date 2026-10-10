@@ -12,8 +12,6 @@ const QUICK = [
   ['download', 'Сохранить мир', 'save-all'],
   // Vanilla, answers in the same RCON reply (spark's `tps` prints later and never reaches RCON).
   ['chip', 'TPS', 'tick query'],
-  ['users', 'Вайтлист', 'whitelist list'],
-  ['lock', 'Баны', 'banlist'],
 ];
 
 /** `list` → { online, max, names }; null if the reply isn't the vanilla one. */
@@ -23,8 +21,69 @@ function parseList(reply) {
   return { online: +m[1], max: +m[2], names: m[3].split(',').map((s) => s.trim()).filter(Boolean) };
 }
 
-// The console log and command history outlive switching screens (not an app restart).
+/** `whitelist list` → names ("There are 2 whitelisted player(s): a, b" / "There are no whitelisted players"). */
+function parseWhitelist(reply) {
+  const m = /whitelisted players?(?:\(s\))?:\s*([\s\S]*)$/.exec(reply || '');
+  return m ? m[1].split(',').map((s) => s.trim()).filter(Boolean) : [];
+}
+
+/** `banlist players` → names. RCON glues the lines together, so match each "X was banned by". */
+const parseBans = (reply) => [...String(reply || '').matchAll(/([A-Za-z0-9_-]{1,16}) was banned by/g)].map((m) => m[1]);
+
+// The console log and command history outlive switching screens (not an app restart); the
+// restart countdown keeps sending even while another screen is open.
 const session = { log: [], history: [], seq: 0 };
+const listeners = new Set();
+function record(entry) {
+  const i = session.log.findIndex((x) => x.id === entry.id);
+  session.log = i < 0 ? [...session.log, entry].slice(-200) : session.log.map((x) => (x.id === entry.id ? entry : x));
+  listeners.forEach((f) => f());
+}
+
+/** Runs a command over RCON; `quiet` keeps it out of the log. Resolves to { reply } or { error }. */
+async function exec(command, quiet) {
+  const base = { id: ++session.seq, at: Date.now(), command };
+  if (!quiet) record({ ...base, busy: true });
+  try {
+    const reply = await adminExec(command);
+    if (!quiet) record({ ...base, reply });
+    return { reply };
+  } catch (e) {
+    const error = errText(e);
+    if (!quiet) record({ ...base, error });
+    return { error };
+  }
+}
+
+const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
+const inWords = (s) => (s >= 60 ? Math.round(s / 60) + ' ' + plural(Math.round(s / 60), 'минуту', 'минуты', 'минут') : s + ' ' + plural(s, 'секунду', 'секунды', 'секунд'));
+const tellraw = (text, color) => 'tellraw @a ' + JSON.stringify({ text: '[Luma] ' + text, color: color || 'gold' });
+
+// Planned restart: countdown messages in the game chat, then save-all and a reminder to restart
+// the server in the hosting panel (RCON can stop a server but nothing could start it again).
+const restart = { endsAt: 0, timers: [] };
+function startRestart(minutes, onDone) {
+  stopRestart(false);
+  const total = minutes * 60;
+  restart.endsAt = Date.now() + total * 1000;
+  exec(tellraw('Рестарт сервера через ' + inWords(total)));
+  [600, 300, 120, 60, 30, 10, 5, 4, 3, 2, 1].filter((s) => s < total).forEach((s) => {
+    restart.timers.push(setTimeout(() => exec(tellraw(s > 5 ? 'Рестарт сервера через ' + inWords(s) : s + '…', s <= 10 ? 'red' : 'gold')), (total - s) * 1000));
+  });
+  restart.timers.push(setTimeout(() => {
+    exec('save-all');
+    exec(tellraw('Рестарт! Мир сохранён — заходите через минуту.', 'red'));
+    restart.endsAt = 0;
+    restart.timers = [];
+    if (onDone) onDone();
+  }, total * 1000));
+}
+function stopRestart(announce) {
+  restart.timers.forEach(clearTimeout);
+  restart.timers = [];
+  if (restart.endsAt && announce) exec(tellraw('Рестарт отменён', 'green'));
+  restart.endsAt = 0;
+}
 
 export default function Admin({ server, notify }) {
   const [status, setStatus] = useState(null);
@@ -98,29 +157,19 @@ function Console({ panel, notify, onLogout }) {
   const log = session.log;
 
   // session.log is the source of truth, so a reply that lands after leaving the screen is kept.
-  const put = (entry) => {
-    const i = session.log.findIndex((x) => x.id === entry.id);
-    session.log = i < 0 ? [...session.log, entry].slice(-200) : session.log.map((x) => (x.id === entry.id ? entry : x));
-    rerender((n) => n + 1);
-  };
+  useEffect(() => {
+    const f = () => rerender((n) => n + 1);
+    listeners.add(f);
+    return () => { listeners.delete(f); };
+  }, []);
   useEffect(() => { if (logBox.current) logBox.current.scrollTop = logBox.current.scrollHeight; }, [log]);
 
   /** Runs a command; `quiet` keeps it out of the log (the periodic `list`). Resolves with the reply or null. */
   const run = async (command, quiet) => {
-    const base = { id: ++session.seq, at: Date.now(), command };
-    if (!quiet) put({ ...base, busy: true });
-    try {
-      const reply = await adminExec(command);
-      setOffline(false);
-      if (!quiet) put({ ...base, reply });
-      return reply;
-    } catch (e) {
-      const error = errText(e);
-      // A VPN in TUN mode accepts the connection itself and drops it when the server is down.
-      if (/не отвечает|оборвалась/.test(error)) setOffline(true);
-      if (!quiet) put({ ...base, error });
-      return null;
-    }
+    const { reply, error } = await exec(command, quiet);
+    // A VPN in TUN mode accepts the connection itself and drops it when the server is down.
+    setOffline(!!error && /не отвечает|оборвалась/.test(error));
+    return error ? null : reply;
   };
 
   const loadPlayers = () => run('list', true).then((r) => { if (r != null) setPlayers(parseList(r)); });
@@ -205,12 +254,15 @@ function Console({ panel, notify, onLogout }) {
               {QUICK.map(([icon, label, command]) => <Button key={command} size="sm" icon={icon} onClick={() => run(command)}>{label}</Button>)}
             </div>
           </section>
+          <RestartCard panel={panel} notify={notify} />
           <form className="st-card adm-say" onSubmit={broadcast}>
             <div className="body-strong">Объявление в чат</div>
             <Input placeholder="Через 5 минут рестарт" value={say} onChange={(e) => setSay(e.target.value)} maxLength={256}
               right={<Button size="sm" variant="luma" type="submit" disabled={!say.trim()}>В чат</Button>} />
           </form>
         </div>
+        <WhitelistCard run={run} />
+        <BansCard run={run} />
         <section className="st-card adm-console">
           <div className="st-row">
             <div className="body-strong">Консоль</div>
@@ -234,5 +286,96 @@ function Console({ panel, notify, onLogout }) {
         </section>
       </div>
     </>
+  );
+}
+
+function RestartCard({ panel, notify }) {
+  const [, tick] = useState(0);
+  const left = restart.endsAt ? Math.max(0, Math.ceil((restart.endsAt - Date.now()) / 1000)) : 0;
+  useEffect(() => {
+    if (!restart.endsAt) return undefined;
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [restart.endsAt]);
+  const begin = (minutes) => {
+    startRestart(minutes, () => notify({ icon: 'bolt', title: 'Пора перезапустить сервер', body: 'Отсчёт закончился, мир сохранён. Перезапусти сервер в панели QWERTYX.', duration: 0,
+      actions: panel ? [{ label: 'Открыть панель', icon: 'globe', variant: 'luma', run: () => openUrl(panel) }] : undefined }));
+    tick((n) => n + 1);
+  };
+  return (
+    <section className="st-card adm-restart">
+      <div className="body-strong">Плановый рестарт</div>
+      {left ? (
+        <div className="st-row">
+          <span className="adm-restart-left mono">{String(Math.floor(left / 60)).padStart(2, '0')}:{String(left % 60).padStart(2, '0')}</span>
+          <Button size="sm" variant="ghost" icon="close" onClick={() => { stopRestart(true); tick((n) => n + 1); }}>Отменить</Button>
+        </div>
+      ) : (
+        <div className="adm-quick">
+          {[1, 5, 10].map((m) => <Button key={m} size="sm" icon="clock" onClick={() => begin(m)}>Через {m} мин</Button>)}
+        </div>
+      )}
+      <p className="caption">Игроки увидят отсчёт в чате. В конце лаунчер сохранит мир и напомнит перезапустить сервер в панели QWERTYX. Отсчёт идёт, пока лаунчер открыт.</p>
+    </section>
+  );
+}
+
+/** A list from the server with one action per name, plus an "add" field when `onAdd` is given. */
+function NameListCard({ title, empty, names, onReload, actionLabel, onAction, addLabel, onAdd, extra }) {
+  const [value, setValue] = useState('');
+  const add = (e) => {
+    e.preventDefault();
+    const name = value.trim();
+    if (!NAME.test(name)) return;
+    setValue('');
+    onAdd(name);
+  };
+  return (
+    <section className="st-card adm-names">
+      <div className="st-row">
+        <div className="body-strong">{title}{names ? ' · ' + names.length : ''}</div>
+        <span className="adm-names-tools">{extra}<Button size="sm" variant="ghost" onClick={onReload}>Обновить</Button></span>
+      </div>
+      {!names ? <p className="caption">Спрашиваем сервер…</p> : !names.length ? <p className="caption">{empty}</p> : (
+        <ul className="adm-list">
+          {names.map((name) => (
+            <li key={name} className="adm-player">
+              <PlayerHead name={name} size={28} />
+              <span className="body-strong adm-player-name">{name}</span>
+              {NAME.test(name) ? <Button size="sm" variant="ghost" onClick={() => onAction(name)}>{actionLabel}</Button> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {onAdd ? (
+        <form onSubmit={add}>
+          <Input placeholder="Ник игрока" value={value} onChange={(e) => setValue(e.target.value)} maxLength={16} autoComplete="off" spellCheck={false}
+            right={<Button size="sm" variant="luma" type="submit" disabled={!NAME.test(value.trim())}>{addLabel}</Button>} />
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
+function WhitelistCard({ run }) {
+  const [names, setNames] = useState(null);
+  const load = () => run('whitelist list', true).then((r) => { if (r != null) setNames(parseWhitelist(r)); });
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  const then = (command) => run(command).then(load);
+  return (
+    <NameListCard title="Вайтлист" empty="В вайтлисте никого." names={names} onReload={load}
+      actionLabel="Убрать" onAction={(n) => then('whitelist remove ' + n)}
+      addLabel="Добавить" onAdd={(n) => then('whitelist add ' + n)}
+      extra={<><Button size="sm" variant="ghost" onClick={() => then('whitelist on')}>Вкл</Button><Button size="sm" variant="ghost" onClick={() => then('whitelist off')}>Выкл</Button></>} />
+  );
+}
+
+function BansCard({ run }) {
+  const [names, setNames] = useState(null);
+  const load = () => run('banlist players', true).then((r) => { if (r != null) setNames(parseBans(r)); });
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  return (
+    <NameListCard title="Баны" empty="Никто не забанен." names={names} onReload={load}
+      actionLabel="Разбанить" onAction={(n) => run('pardon ' + n).then(load)} />
   );
 }

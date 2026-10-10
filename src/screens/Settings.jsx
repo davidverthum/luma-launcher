@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Slider, Button, Icon, Tabs, Tag, PlayerHead, RankBadge, Input } from '../ds/index.js';
+import { Slider, Button, Icon, Tabs, Tag, PlayerHead, RankBadge, Input, Toggle } from '../ds/index.js';
 import { CHANNEL_INFO, historyFor } from '../changelog.js';
-import { systemInfo, inTauri, modpack, elyLogin, checkUpdate, appVersion, CHANNELS, channelLabel, buildChannel, listShaders, listLocalMods, addLocalMod, removeLocalMod, setShader, applyPerfPreset } from '../native.js';
+import { systemInfo, inTauri, modpack, packMods, openUrl, elyLogin, checkUpdate, appVersion, CHANNELS, channelLabel, buildChannel, listShaders, listLocalMods, addLocalMod, removeLocalMod, setLocalModEnabled, modCards, setShader, applyPerfPreset } from '../native.js';
 
 const plural = (n, [one, few, many]) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many; };
 
 const NAV = [['perf', 'chip', 'Производительность'], ['mods', 'package', 'Моды'], ['look', 'sparkle', 'Внешний вид'], ['account', 'user', 'Аккаунт'], ['launcher', 'block', 'О лаунчере']];
 const PRESETS = [['low', 'Слабый ПК'], ['medium', 'Средний'], ['high', 'Мощный']];
+
+/** A Modrinth icon, or a package glyph while it loads or when Modrinth doesn't know the mod. */
+function ModIcon({ card }) {
+  return <span className="mod-icon">{card && card.icon ? <img src={card.icon} alt="" loading="lazy" /> : <Icon name="package" size={24} />}</span>;
+}
 
 export default function Settings({ settings, update, notify, realm, openFolder, initialNav, startUpdate }) {
   const [nav, setNav] = useState(initialNav || 'perf');
@@ -41,13 +46,22 @@ export default function Settings({ settings, update, notify, realm, openFolder, 
   const [localMods, setLocalMods] = useState([]);
   const [modDrag, setModDrag] = useState(false);
   const [modBusy, setModBusy] = useState(false);
-  const refreshLocalMods = () => listLocalMods().then(setLocalMods).catch(() => {});
+  const [cards, setCards] = useState({ pack: {}, local: {} });
+  const refreshLocalMods = (freshCards) => {
+    listLocalMods().then(setLocalMods).catch(() => {});
+    modCards(freshCards).then(setCards).catch(() => {});
+  };
   useEffect(() => {
     if (nav !== 'mods') return;
     listShaders().then(setShaders).catch(() => {});
     refreshLocalMods();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nav]);
+  const toggleMod = (m) => {
+    setLocalMods((list) => list.map((x) => (x.file === m.file ? { ...x, enabled: !m.enabled } : x)));
+    setLocalModEnabled(m.file, !m.enabled)
+      .catch((e) => { notify({ tone: 'danger', icon: 'close', title: 'Не переключилось', body: String((e && e.message) || e) }); refreshLocalMods(); });
+  };
   useEffect(() => {
     if (nav !== 'mods' || !inTauri) return;
     let unlisten = null;
@@ -61,7 +75,7 @@ export default function Settings({ settings, update, notify, realm, openFolder, 
       if (!jars.length) { notify({ tone: 'danger', icon: 'close', title: 'Это не .jar', body: 'Перетащи файл мода.' }); return; }
       setModBusy(true);
       Promise.all(jars.map((p) => addLocalMod(p)))
-        .then((names) => { notify({ icon: 'check', title: 'Добавлено', body: names.join(', ') }); refreshLocalMods(); })
+        .then((names) => { notify({ icon: 'check', title: 'Добавлено', body: names.join(', ') }); refreshLocalMods(true); })
         .catch((e2) => notify({ tone: 'danger', icon: 'close', title: 'Не добавилось', body: String((e2 && e2.message) || e2) }))
         .finally(() => setModBusy(false));
     }).then((u) => { unlisten = u; });
@@ -194,15 +208,40 @@ export default function Settings({ settings, update, notify, realm, openFolder, 
                 <span className="caption">{modBusy ? 'Добавляем…' : modDrag ? 'Отпусти, чтобы добавить' : 'Перетащи .jar сюда'}</span>
               </div>
               {localMods.length ? (
-                <ul className="st-steps">
-                  {localMods.map((f) => (
-                    <li key={f} className="st-row" style={{ justifyContent: 'space-between' }}>
-                      <span className="mono caption">{f}</span>
-                      <Button size="sm" variant="ghost" icon="trash" onClick={() => dropMod(f)}>Убрать</Button>
-                    </li>
-                  ))}
+                <ul className="mod-list">
+                  {localMods.map((m) => {
+                    const c = cards.local[m.file];
+                    return (
+                      <li key={m.file} className={'mod-row' + (m.enabled ? '' : ' is-off')}>
+                        <ModIcon card={c} />
+                        <span className="mod-text">
+                          <span className="body-strong">{c ? c.title : m.file.replace(/\.jar$/i, '')}</span>
+                          <span className="mono caption">{m.file}{m.enabled ? '' : ' · выключен'}</span>
+                        </span>
+                        <Toggle checked={m.enabled} onChange={() => toggleMod(m)} label={undefined} />
+                        <Button size="sm" variant="ghost" icon="trash" onClick={() => dropMod(m.file)}>Убрать</Button>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : <p className="caption">Своих модов пока нет.</p>}
+            </section>
+            <section className="st-card">
+              <div className="st-row"><div className="body-strong">Моды сборки · {modpack.mods.length}</div><span className="caption">Ставятся и обновляются сами. Нажми, чтобы открыть на Modrinth.</span></div>
+              <div className="mod-grid">
+                {packMods.map((m) => {
+                  const c = cards.pack[m.slug];
+                  return (
+                    <button key={m.slug} type="button" className="mod-card" onClick={() => openUrl(c ? c.url : 'https://modrinth.com/mod/' + m.slug)} title={c ? c.description : m.name}>
+                      <ModIcon card={c} />
+                      <span className="mod-text">
+                        <span className="body-strong">{c ? c.title : m.name}</span>
+                        <span className="caption">{c ? c.description : m.version}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </section>
           </>
         ) : null}
@@ -212,6 +251,10 @@ export default function Settings({ settings, update, notify, realm, openFolder, 
             <section className="st-card st-look">
               <div className="body-strong">Тема</div>
               <Tabs value={settings.theme} onChange={(t) => update({ theme: t })} items={[{ id: 'auto', label: 'По циклу дня', icon: 'clock' }, { id: 'night', label: 'Ночь', icon: 'sparkle' }, { id: 'day', label: 'День', icon: 'bolt' }]} />
+            </section>
+            <section className="st-card st-toggles st-look-notify">
+              <Toggle label="Когда кто-то заходит на сервер" hint="Уведомление в лаунчере, а если он свёрнут — уведомление Windows."
+                checked={settings.notifyJoins !== false} onChange={(v) => update({ notifyJoins: v })} />
             </section>
           </>
         ) : null}

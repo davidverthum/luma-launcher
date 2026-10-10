@@ -21,6 +21,8 @@ tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tauri-plugin-clipboard-manager = "2"
+# "Rimfyy зашёл на сервер" when the launcher isn't in front.
+tauri-plugin-notification = "2"
 # The admin panel's RCON password, kept in the OS credential store.
 keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
 serde = { version = "1", features = ["derive"] }

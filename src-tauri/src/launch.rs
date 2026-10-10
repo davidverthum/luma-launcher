@@ -459,7 +459,18 @@ pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Pa
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x0800_0000);
     }
-    cmd.spawn().map_err(|e| format!("не запустили java: {e}"))?;
+    let started = std::time::SystemTime::now();
+    let mut child = cmd.spawn().map_err(|e| format!("не запустили java: {e}"))?;
     emit(app, "launch", 1, 1, "");
+
+    // Watch the game from the side: a bad exit becomes `luma://game-crash` for the crash dialog.
+    let (app, instance) = (app.clone(), instance.to_path_buf());
+    std::thread::spawn(move || {
+        let code = child.wait().ok().and_then(|s| s.code());
+        let local = crate::mods::enabled_local_jars(game::modpack(), &instance);
+        if let Some(crash) = crate::crash::analyze(&instance, started, code, &local) {
+            let _ = app.emit("luma://game-crash", &crash);
+        }
+    });
     Ok(())
 }

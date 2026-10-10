@@ -2,11 +2,13 @@
 //! and getting players into the server (modpack sync + profile in the official launcher).
 
 mod admin;
+mod crash;
 mod elyby;
 mod game;
 mod launch;
 mod mods;
 mod nbt;
+mod net;
 mod rcon;
 mod shots;
 mod slp;
@@ -150,11 +152,15 @@ fn modpack_info() -> game::PackInfo {
 #[tauri::command]
 async fn server_status() -> slp::Status {
     let address = game::modpack().server.address.clone();
-    tauri::async_runtime::spawn_blocking(move || slp::query(&address, Duration::from_secs(5)))
-        .await
-        .map_err(|e| e.to_string())
-        .and_then(|r| r)
-        .unwrap_or_else(|e| slp::Status { error: Some(e), ..Default::default() })
+    let (host, port) = slp::split_address(&address);
+    let status = match net::resolve(&address).await {
+        Ok(addr) => tauri::async_runtime::spawn_blocking(move || slp::query_at(addr, &host, port, Duration::from_secs(5)))
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|r| r),
+        Err(e) => Err(e),
+    };
+    status.unwrap_or_else(|e| slp::Status { error: Some(e), ..Default::default() })
 }
 
 #[derive(Serialize)]
@@ -323,8 +329,37 @@ fn list_shaders() -> Vec<game::ShaderFile> {
 }
 
 #[tauri::command]
-fn list_local_mods(app: AppHandle) -> Result<Vec<String>, String> {
+fn list_local_mods(app: AppHandle) -> Result<Vec<mods::LocalMod>, String> {
     mods::list_local(game::modpack(), &game::instance_dir(&app)?)
+}
+
+/// Switches a player's own mod on or off (`.jar` ↔ `.jar.disabled`) without deleting it.
+#[tauri::command]
+fn set_local_mod_enabled(app: AppHandle, filename: String, enabled: bool) -> Result<(), String> {
+    mods::set_local_enabled(game::modpack(), &game::instance_dir(&app)?, &filename, enabled)
+}
+
+/// Titles, descriptions and icons from Modrinth for the pack's mods and the player's own.
+#[tauri::command]
+async fn mod_cards(app: AppHandle) -> Result<mods::ModCards, String> {
+    let client = game::http()?;
+    mods::cards(&client, game::modpack(), &game::instance_dir(&app)?).await
+}
+
+#[tauri::command]
+fn open_crash_dir(app: AppHandle) -> Result<String, String> {
+    let dir = game::instance_dir(&app)?.join("crash-reports");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let shown = dir.display().to_string();
+    app.opener().open_path(shown.clone(), None::<&str>).map_err(|e| e.to_string())?;
+    Ok(shown)
+}
+
+/// A Windows / macOS / Linux notification, for when the launcher isn't in front.
+#[tauri::command]
+fn notify_system(app: AppHandle, title: String, body: String) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+    app.notification().builder().title(title).body(body).show().map_err(|e| e.to_string())
 }
 
 /// `path` is a real filesystem path — from the file-picker dialog or a window drag-drop event.
@@ -410,13 +445,13 @@ fn admin_status() -> AdminStatus {
 /// Checks the RCON password against the server, then keeps it in the OS credential store.
 #[tauri::command]
 async fn admin_login(password: String) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || admin::login(&password)).await.map_err(|e| e.to_string())?
+    admin::login(password).await
 }
 
 /// Runs one console command on the server over RCON and returns its reply.
 #[tauri::command]
 async fn admin_exec(command: String) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || admin::exec(&command)).await.map_err(|e| e.to_string())?
+    admin::exec(command).await
 }
 
 #[tauri::command]
@@ -451,6 +486,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             // The album shows screenshots straight from disk via the asset protocol — only that folder.
             // A failure here only leaves the album without previews; it must not stop the launcher.
@@ -484,6 +520,10 @@ pub fn run() {
             list_local_mods,
             add_local_mod,
             remove_local_mod,
+            set_local_mod_enabled,
+            mod_cards,
+            open_crash_dir,
+            notify_system,
             set_shader,
             apply_perf_preset,
             list_screenshots,

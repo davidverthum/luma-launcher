@@ -4,7 +4,7 @@
 //! settings.json or the app itself.
 use std::{
     io::{self, Read, Write},
-    net::{TcpStream, ToSocketAddrs},
+    net::{SocketAddr, TcpStream},
     time::Duration,
 };
 
@@ -62,7 +62,17 @@ fn io_err(e: io::Error) -> String {
 }
 
 /// Runs `command` on the server at `address` (host:port) and returns its reply.
+#[cfg(test)]
 pub fn exec(address: &str, password: &str, command: &str) -> Result<String, String> {
+    let addr = std::net::ToSocketAddrs::to_socket_addrs(address)
+        .map_err(|e| format!("адрес RCON: {e}"))?
+        .next()
+        .ok_or("адрес RCON не найден")?;
+    exec_at(addr, password, command)
+}
+
+/// Runs `command` on the server at an already resolved `addr` (see net::resolve).
+pub fn exec_at(addr: SocketAddr, password: &str, command: &str) -> Result<String, String> {
     let command = command.trim().trim_start_matches('/');
     if command.is_empty() {
         return Err("пустая команда".into());
@@ -70,11 +80,6 @@ pub fn exec(address: &str, password: &str, command: &str) -> Result<String, Stri
     if command.len() > MAX_COMMAND {
         return Err("слишком длинная команда".into());
     }
-    let addr = address
-        .to_socket_addrs()
-        .map_err(|e| format!("адрес RCON: {e}"))?
-        .next()
-        .ok_or("адрес RCON не найден")?;
     let mut s = TcpStream::connect_timeout(&addr, Duration::from_secs(5))
         .map_err(|_| "RCON не отвечает: сервер выключен или порт закрыт".to_string())?;
     s.set_read_timeout(Some(Duration::from_secs(10))).map_err(io_err)?;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RealmRail, TitleBar, CommandPalette, Toast, Button, VoxelArt } from './ds/index.js';
-import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel, isAdmin, buildChannel } from './native.js';
+import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel, isAdmin, buildChannel, onGameCrash, notifySystem } from './native.js';
 import { notesFor } from './changelog.js';
 import { useFitZoom } from './zoom.js';
 import { useServer, liveRealm } from './server.js';
@@ -15,6 +15,7 @@ import Shots from './screens/Shots.jsx';
 import Admin from './screens/Admin.jsx';
 import Settings from './screens/Settings.jsx';
 import Updating from './screens/Updating.jsx';
+import Crash from './screens/Crash.jsx';
 
 const DEFAULTS = {
   profile: null,
@@ -31,6 +32,7 @@ const DEFAULTS = {
   perfPreset: null,
   updateChannel: null, // 'yug' | 'sever'; null — the channel this build came from
   seenVersion: null, // the version whose «Что нового» was already shown
+  notifyJoins: true, // «X теперь на сервере»
 };
 
 function useSettings() {
@@ -179,6 +181,36 @@ export default function App() {
 
   const server = useServer();
   const realm = liveRealm(server);
+
+  // «X теперь на сервере»: names new to the server's player sample since the last poll. Only
+  // between two answers from a running server, so a restart doesn't announce everyone.
+  const lastSample = useRef(null);
+  useEffect(() => {
+    if (!server) return;
+    const prev = lastSample.current;
+    const now = server.online ? server.sample || [] : null;
+    lastSample.current = now;
+    if (!prev || !now || !settings || settings.notifyJoins === false) return;
+    const me = String((settings.mc && settings.mc.name) || '').toLowerCase();
+    const joined = now.filter((n) => !prev.includes(n) && n.toLowerCase() !== me);
+    if (!joined.length) return;
+    const title = (joined.length === 1 ? joined[0] : joined.slice(0, -1).join(', ') + ' и ' + joined[joined.length - 1]) + ' теперь на сервере';
+    const body = 'Онлайн ' + server.players + ' из ' + server.max + ' — заходи!';
+    notify({ head: joined[0], title, body, duration: 10000, actions: [{ label: 'Играть', icon: 'play', variant: 'luma', run: () => setRoute('home') }] });
+    if (!document.hasFocus()) notifySystem(title, body);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [server]);
+
+  // Minecraft quit badly → the crash dialog (and a system notification if the launcher is behind the game).
+  const [crash, setCrash] = useState(null);
+  useEffect(() => {
+    let stop = null;
+    onGameCrash((c) => {
+      setCrash(c);
+      if (!document.hasFocus()) notifySystem('Игра вылетела', c.summary || 'Открой Luma — там причина и отчёт.');
+    }).then((f) => { stop = f; });
+    return () => { if (stop) stop(); };
+  }, []);
   const admin = !!settings && isAdmin(settings.mc ? settings.mc.name : settings.profile && settings.profile.name);
   const setRealm = () => update({ realm: 'luma' });
   const openFolder = async () => {
@@ -253,6 +285,7 @@ export default function App() {
       <main className={'app-main route-' + route}>{screens[route] || screens.home}</main>
       <CommandPalette open={palette} groups={groups} onClose={() => setPalette(false)} onSelect={(it) => { setPalette(false); it.run && it.run(); }} />
       <Toasts list={toasts} dismiss={dismiss} />
+      {crash ? <Crash crash={crash} notify={notify} onClose={() => setCrash(null)} /> : null}
       {updating ? <Updating state={updating} onRetry={() => startUpdate(updating.upd)} onClose={() => setUpdating(null)} /> : null}
     </div>
   );
