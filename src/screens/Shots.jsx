@@ -5,6 +5,7 @@ import { useScreenshots, shotCount, byDay, dayLabel, timeLabel } from '../shots.
 
 const PAGE = 48;
 const errText = (e) => String((e && e.message) || e);
+const sizeLabel = (b) => (b < 1e6 ? Math.max(1, Math.round(b / 1e3)) + ' КБ' : String(Math.round(b / 1e5) / 10).replace('.', ',') + ' МБ');
 
 export default function Shots({ notify, setRoute }) {
   const [list, reload] = useScreenshots();
@@ -104,7 +105,7 @@ function Viewer({ shots, index, onIndex, onClose, onDeleted, notify }) {
     <div className="shot-viewer" role="dialog" aria-label="Скриншот">
       <div className="shot-viewer-top">
         <span className="body-strong">{dayLabel(s.taken_ms)}, {timeLabel(s.taken_ms)}</span>
-        <span className="caption">{index + 1} из {shots.length} · {String(Math.round(s.size / 1e5) / 10).replace('.', ',')} МБ</span>
+        <span className="caption">{index + 1} из {shots.length} · {sizeLabel(s.size)}</span>
         <IconButton icon="close" label="Закрыть" onClick={onClose} />
       </div>
       <div className="shot-viewer-stage">
