@@ -9,6 +9,7 @@ import Wardrobe from './screens/Wardrobe.jsx';
 import Store from './screens/Store.jsx';
 import News from './screens/News.jsx';
 import MapScreen from './screens/Map.jsx';
+import Shots from './screens/Shots.jsx';
 import Settings from './screens/Settings.jsx';
 
 const DEFAULTS = {
@@ -59,7 +60,8 @@ function useThemeMode(mode) {
 
 let toastSeq = 0;
 const NAV = [{ id: 'home', label: 'Главная' }, { id: 'realms', label: 'Сервер' }, { id: 'map', label: 'Карта' }, { id: 'wardrobe', label: 'Гардероб' }, { id: 'news', label: 'Новости' }];
-const RAIL_FOOTER = [{ id: 'settings', icon: 'settings', label: 'Настройки' }];
+// The title bar has no room for another tab at the minimum window width, so the album lives in the rail.
+const RAIL_FOOTER = [{ id: 'shots', icon: 'camera', label: 'Скриншоты' }, { id: 'settings', icon: 'settings', label: 'Настройки' }];
 
 export default function App() {
   const [settings, update] = useSettings();
@@ -152,6 +154,7 @@ export default function App() {
       { id: 'theme', icon: 'sparkle', label: 'Сменить тему', hint: 'ночь · день · по циклу дня', keywords: 'тема темная светлая', run: () => update((s) => ({ ...s, theme: s.theme === 'night' ? 'day' : s.theme === 'day' ? 'auto' : 'night' })) },
       { id: 'wardrobe', icon: 'shirt', label: 'Гардероб', hint: 'скины и плащи', run: () => setRoute('wardrobe') },
       { id: 'map', icon: 'pin', label: 'Карта', hint: 'живая 3D-карта сервера', run: () => setRoute('map') },
+      { id: 'shots', icon: 'camera', label: 'Скриншоты', hint: 'альбом снимков из игры', keywords: 'скрины screenshots f2 альбом фото', run: () => setRoute('shots') },
     ] },
     { group: 'Сервер', items: [
       { id: 'copy', icon: 'globe', label: 'Скопировать адрес сервера', hint: modpack.server.address, keywords: 'адрес ip айпи', run: copyAddress },
@@ -177,6 +180,7 @@ export default function App() {
     store: <Store {...screenProps} />,
     news: <News {...screenProps} />,
     map: <MapScreen {...screenProps} />,
+    shots: <Shots {...screenProps} />,
     settings: <Settings {...screenProps} />,
   };
 

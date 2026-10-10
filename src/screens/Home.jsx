@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { PlayButton, IconButton, Tag, Led, Ping, HeadStack, Emblem, FriendRow, Icon, Button } from '../ds/index.js';
-import { inTauri, modpack, onProgress, playDirect, copyText } from '../native.js';
+import { PlayButton, IconButton, Tag, Led, Ping, HeadStack, Emblem, FriendRow, Icon } from '../ds/index.js';
+import { inTauri, modpack, onProgress, playDirect, screenshotSrc } from '../native.js';
+import { useScreenshots, shotCount, dayLabel, timeLabel } from '../shots.js';
 
 const HIGHLIGHTS = ['Touhou Little Maid: Orihime', 'Waystones', "Traveler's Backpack", "Farmer's Delight Refabricated", "Xaero's Minimap", "Xaero's World Map", 'Carry On', 'Comforts', 'EMI', 'Sodium', 'Iris Shaders', 'Jade'];
 const CATS = ['Чэнь', 'Орин', 'Мике'];
@@ -14,7 +15,8 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
   const known = server !== null && server !== undefined;
   const online = known && server.online;
   const here = (known && server.sample) || [];
-  const address = modpack.server.address;
+  const [shots] = useScreenshots();
+  const latest = shots && shots[0];
 
   const STAGE_LABEL = { mods: 'Моды', version: 'Версия игры', client: 'Клиент', libraries: 'Библиотеки', assets: 'Ресурсы', launch: 'Запуск' };
 
@@ -47,11 +49,6 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
       stop();
       setTimeout(() => { setState('ready'); setP(0); setStage(''); }, 1500);
     }
-  };
-
-  const copy = async () => {
-    const ok = await copyText(address);
-    notify({ icon: ok ? 'check' : 'close', title: ok ? 'Адрес скопирован' : 'Не скопировалось', body: address });
   };
 
   const sub = state === 'ready' ? r.name + ' · Fabric ' + modpack.minecraft + ' · ' + (ram ? ram + ' ГБ' : 'память авто') : stage;
@@ -91,12 +88,12 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
             <p className="body hcard-text">При первом входе рядом с тобой появится горничная — {CATS.join(', ').replace(/, ([^,]*)$/, ' или $1')}. Ходит за тобой, помогает в бою и на ферме.</p>
             <p className="caption hcard-note">ПКМ по ней — её меню: задачи и инвентарь.</p>
           </div>
-          <div className="hcard hcard--addr">
-            <div className="hcard-head"><span className="overline">Адрес сервера</span><span className={'lm-mark-dot ' + (online ? 'is-online' : 'is-offline')} /></div>
-            <button type="button" className="hcard-addr mono" onClick={copy} title="Скопировать">{address.split(':')[0]}<wbr />:{address.split(':')[1]}</button>
-            <p className="caption hcard-note">{known && server.motd ? server.motd : 'Minecraft ' + modpack.minecraft + ' · Fabric ' + modpack.loader.version}</p>
-            <Button size="sm" variant="glass" onClick={copy}>Скопировать</Button>
-          </div>
+          <button type="button" className={'hcard hcard--shots' + (latest ? ' has-shot' : '')} onClick={() => setRoute('shots')}>
+            {latest ? <img className="hcard-shot" src={screenshotSrc(latest.path)} alt="" decoding="async" draggable={false} /> : null}
+            <span className="hcard-head"><span className="overline">Скриншоты</span><Icon name="camera" size={16} /></span>
+            <span className="title">{latest ? dayLabel(latest.taken_ms) + ', ' + timeLabel(latest.taken_ms) : 'Пока пусто'}</span>
+            <span className="caption hcard-note">{latest ? shotCount(shots.length) + ' · открыть альбом' : 'Нажми F2 в игре — снимок появится здесь сам.'}</span>
+          </button>
         </section>
       </div>
       <aside className="side">

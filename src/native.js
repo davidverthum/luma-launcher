@@ -1,5 +1,5 @@
 // Bridge to the Rust core. In a plain browser (vite dev without Tauri) everything falls back to safe stand-ins.
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { check as checkUpdateApi } from '@tauri-apps/plugin-updater';
@@ -177,6 +177,22 @@ export function setShader(slug) {
 export function applyPerfPreset(preset) {
   return inTauri ? invoke('apply_perf_preset', { preset }) : Promise.reject(new Error('Только в приложении.'));
 }
+
+/** Screenshots the game saved (F2), newest first: [{ file, path, size, taken_ms }]. */
+export function listScreenshots() {
+  return inTauri ? invoke('list_screenshots') : Promise.resolve([]);
+}
+
+/** An <img> src for a screenshot's `path` — the core only lets the screenshots folder through. */
+export const screenshotSrc = (path) => convertFileSrc(path);
+
+export const openScreenshotsDir = () => (inTauri ? invoke('open_screenshots_dir') : Promise.resolve(null));
+
+/** The rest take the bare `file` name from `listScreenshots`. */
+export const openScreenshot = (file) => invoke('open_screenshot', { file });
+export const revealScreenshot = (file) => invoke('reveal_screenshot', { file });
+export const copyScreenshot = (file) => invoke('copy_screenshot', { file });
+export const deleteScreenshot = (file) => invoke('delete_screenshot', { file });
 
 /** Checks the GitHub release feed for a newer build; null when already up to date. */
 export function checkUpdate() {
