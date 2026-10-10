@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { PlayButton, IconButton, Tag, Led, Ping, HeadStack, Emblem, FriendRow, Icon } from '../ds/index.js';
 import { inTauri, modpack, onProgress, playDirect, screenshotSrc } from '../native.js';
 import { useScreenshots, shotCount, dayLabel, timeLabel } from '../shots.js';
@@ -6,7 +6,35 @@ import { useScreenshots, shotCount, dayLabel, timeLabel } from '../shots.js';
 const HIGHLIGHTS = ['Touhou Little Maid: Orihime', 'Waystones', "Traveler's Backpack", "Farmer's Delight Refabricated", "Xaero's Minimap", "Xaero's World Map", 'Carry On', 'Comforts', 'EMI', 'Sodium', 'Iris Shaders', 'Jade'];
 const CATS = ['Чэнь', 'Орин', 'Мике'];
 
-export default function Home({ realm: r, settings, notify, setRoute, openFolder, server }) {
+/** Keeps the voxel art (drawn by App behind the hero) ending just under the hero text and the
+ * island just above it, so a tall window — a portrait monitor — doesn't strand the island at the
+ * top with empty space below. At the usual sizes it changes nothing (70vh art, island at 43%). */
+function useArtFit(kickerRef, onArtFit) {
+  useLayoutEffect(() => {
+    const kicker = kickerRef.current;
+    const app = kicker && kicker.closest('.app');
+    if (!app || !onArtFit) return;
+    const fit = () => {
+      const top = kicker.getBoundingClientRect().top - app.getBoundingClientRect().top;
+      const h = Math.max(Math.min(app.clientHeight * 0.7, 760), top + 120);
+      const fy = Math.max(0.43, (top - 300) / h);
+      // A narrow main column (portrait window): move the island left, clear of the side panel.
+      const main = kicker.closest('.home-main');
+      const art = app.querySelector('.app-art');
+      const fx = main && art && main.clientWidth < 800 ? Math.max(0.3, (main.clientWidth * 0.55) / art.clientWidth) : 0.57;
+      onArtFit((cur) => (cur && Math.abs(cur.h - h) < 2 && Math.abs(cur.fy - fy) < 0.005 && Math.abs(cur.fx - fx) < 0.005 ? cur : { h, fy, fx }));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(app);
+    return () => { ro.disconnect(); onArtFit(null); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
+
+export default function Home({ realm: r, settings, notify, setRoute, openFolder, server, onArtFit }) {
+  const kickerRef = useRef(null);
+  useArtFit(kickerRef, onArtFit);
   const [state, setState] = useState('ready');
   const [p, setP] = useState(0);
   const [stage, setStage] = useState('');
@@ -57,7 +85,7 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
     <div className="home">
       <div className="home-main">
         <section className="hero">
-          <div className="overline hero-kicker"><Emblem realm={r.emblem} size={16} color={r.light} />{r.kind}</div>
+          <div className="overline hero-kicker" ref={kickerRef}><Emblem realm={r.emblem} size={16} color={r.light} />{r.kind}</div>
           <h1 className="display-xl hero-name">{r.name}</h1>
           <p className="body-lg hero-desc">{r.desc}</p>
           <div className="hero-tags">

@@ -234,9 +234,16 @@ export function checkUpdate(channel) {
   return invoke('check_update', { channel: channel || null });
 }
 
-/** Downloads + installs an update found by `checkUpdate`, then restarts into it. */
-export async function installUpdate(update) {
-  await invoke('install_update', { channel: update.channel });
+/** Downloads + installs an update found by `checkUpdate`, then restarts into it.
+ * `onProgress({ stage: 'download' | 'install', done, total })` feeds the update screen. On Windows
+ * the installer runs silently and starts Luma again itself, so this may never resolve. */
+export async function installUpdate(update, onProgress) {
+  const stop = onProgress ? await listen('luma://update', (e) => onProgress(e.payload)) : () => {};
+  try {
+    await invoke('install_update', { channel: update.channel });
+  } finally {
+    stop();
+  }
   await relaunch();
 }
 

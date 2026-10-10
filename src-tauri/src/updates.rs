@@ -4,7 +4,7 @@
 //! through the GitHub API. Either way the updater gets that release's latest.json.
 use crate::game;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Url};
+use tauri::{AppHandle, Emitter, Url};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 const REPO: &str = "davidverthum/luma-launcher";
@@ -97,10 +97,37 @@ pub async fn check(app: &AppHandle, channel: Option<&str>) -> Result<Option<Upda
     }))
 }
 
-/// Checks again (the found update isn't kept between calls), then downloads and installs it.
-/// The caller restarts the app afterwards.
+#[derive(Serialize, Clone)]
+struct Progress {
+    /// "download" while bytes arrive, then "install".
+    stage: &'static str,
+    done: u64,
+    total: Option<u64>,
+}
+
+/// Checks again (the found update isn't kept between calls), then downloads and installs it,
+/// reporting `luma://update` events for the launcher's own update screen. On Windows the
+/// installer runs silently (installMode "quiet") and starts Luma again by itself; elsewhere the
+/// caller restarts the app.
 pub async fn install(app: &AppHandle, channel: Option<&str>) -> Result<(), String> {
     let (_, update) = find(app, channel).await?;
     let update = update.ok_or("уже стоит последняя версия этой ветки")?;
-    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())
+    let (on_chunk, on_done) = (app.clone(), app.clone());
+    let (mut done, mut reported) = (0u64, 0u64);
+    update
+        .download_and_install(
+            move |chunk, total| {
+                done += chunk as u64;
+                // Every 256 KB, not every chunk — a few dozen events for the whole download.
+                if done - reported >= 256 * 1024 || total == Some(done) {
+                    reported = done;
+                    let _ = on_chunk.emit("luma://update", Progress { stage: "download", done, total });
+                }
+            },
+            move || {
+                let _ = on_done.emit("luma://update", Progress { stage: "install", done: 0, total: None });
+            },
+        )
+        .await
+        .map_err(|e| e.to_string())
 }

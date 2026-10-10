@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RealmRail, TitleBar, CommandPalette, Toast, Button, VoxelArt } from './ds/index.js';
-import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel, isAdmin } from './native.js';
+import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel, isAdmin, buildChannel } from './native.js';
+import { notesFor } from './changelog.js';
+import { useFitZoom } from './zoom.js';
 import { useServer, liveRealm } from './server.js';
 import Login from './screens/Login.jsx';
 import Home from './screens/Home.jsx';
@@ -12,6 +14,7 @@ import MapScreen from './screens/Map.jsx';
 import Shots from './screens/Shots.jsx';
 import Admin from './screens/Admin.jsx';
 import Settings from './screens/Settings.jsx';
+import Updating from './screens/Updating.jsx';
 
 const DEFAULTS = {
   profile: null,
@@ -27,6 +30,7 @@ const DEFAULTS = {
   shader: null,
   perfPreset: null,
   updateChannel: null, // 'yug' | 'sever'; null — the channel this build came from
+  seenVersion: null, // the version whose «Что нового» was already shown
 };
 
 function useSettings() {
@@ -71,8 +75,12 @@ export default function App() {
   const [route, setRoute] = useState('home');
   const [palette, setPalette] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [settingsNav, setSettingsNav] = useState(null); // open Settings on this tab once
+  const [artFit, setArtFit] = useState(null); // { h, fy, fx } from Home — see useArtFit
   const isMac = platform() === 'mac';
   useThemeMode(settings && settings.theme);
+  useFitZoom();
+  useEffect(() => { if (route !== 'settings') setSettingsNav(null); }, [route]);
 
   const token = settings && settings.profile && settings.profile.token;
   useEffect(() => {
@@ -100,6 +108,14 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mcToken]);
 
+  // The update screen: { upd, stage: 'download' | 'install', done, total, error }.
+  const [updating, setUpdating] = useState(null);
+  const startUpdate = useCallback((upd) => {
+    setUpdating({ upd, stage: 'download', done: 0, total: null, error: null });
+    installUpdate(upd, (p) => setUpdating((u) => (u ? { ...u, ...p } : u)))
+      .catch((e) => setUpdating((u) => (u ? { ...u, error: String((e && e.message) || e) } : u)));
+  }, []);
+
   // Once per launch, on the channel picked in settings (none picked: the build's own).
   const settingsLoaded = !!settings;
   useEffect(() => {
@@ -114,15 +130,34 @@ export default function App() {
         body: switching
           ? 'Сейчас стоит ' + appVersion + ' из ветки «' + channelLabel(upd.from_channel) + '». Лаунчер поставит ветку «' + channelLabel(upd.channel) + '» и перезапустится.'
           : 'Сейчас установлена ' + appVersion + '. Лаунчер скачает и установит новую версию, затем перезапустится.',
-        actions: [{ label: 'Установить', icon: 'download', variant: 'luma', run: () => {
-          notify({ icon: 'download', title: 'Устанавливаем ' + upd.version, body: 'Не закрывай лаунчер…', duration: 0 });
-          installUpdate(upd).catch((e) => notify({ tone: 'danger', icon: 'close', title: 'Не получилось обновиться', body: String((e && e.message) || e), duration: 10000 }));
-        } }],
+        actions: [{ label: 'Установить', icon: 'download', variant: 'luma', run: () => startUpdate(upd) }],
       });
     }).catch(() => {});
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoaded]);
+
+  // «Что нового» once per installed version, after login.
+  const loggedIn = !!(settings && settings.profile);
+  useEffect(() => {
+    if (!loggedIn || settings.seenVersion === appVersion) return;
+    let alive = true;
+    buildChannel().then((ch) => {
+      if (!alive) return;
+      update({ seenVersion: appVersion });
+      const notes = notesFor(ch, appVersion);
+      if (!notes) return;
+      const more = notes.items.length - 1;
+      notify({
+        icon: 'sparkle', duration: 15000,
+        title: 'Что нового в ' + appVersion + (notes.channel ? ' · ' + channelLabel(notes.channel) : ''),
+        body: notes.items[0] + (more > 0 ? ' И ещё ' + more + ' — в «О лаунчере».' : ''),
+        actions: [{ label: 'Все изменения', icon: 'news', variant: 'luma', run: () => { setSettingsNav('launcher'); setRoute('settings'); } }],
+      });
+    }).catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loggedIn]);
 
   const notify = useCallback((t) => {
     const id = ++toastSeq;
@@ -184,9 +219,9 @@ export default function App() {
     );
   }
 
-  const screenProps = { settings, update, notify, realm, setRealm, setRoute, openFolder, server, copyAddress };
+  const screenProps = { settings, update, notify, realm, setRealm, setRoute, openFolder, server, copyAddress, startUpdate };
   const screens = {
-    home: <Home {...screenProps} />,
+    home: <Home {...screenProps} onArtFit={setArtFit} />,
     realms: <Realms {...screenProps} />,
     wardrobe: <Wardrobe {...screenProps} />,
     store: <Store {...screenProps} />,
@@ -194,14 +229,14 @@ export default function App() {
     map: <MapScreen {...screenProps} />,
     shots: <Shots {...screenProps} />,
     admin: admin ? <Admin {...screenProps} /> : null,
-    settings: <Settings {...screenProps} />,
+    settings: <Settings {...screenProps} initialNav={settingsNav} />,
   };
 
   return (
     <div className={'app' + (isMac ? ' is-mac' : '') + (route === 'home' ? ' has-art' : '')} style={{ '--realm': realm.light }}>
       {route === 'home' ? (
-        <div className="app-art" aria-hidden="true">
-          <VoxelArt key={realm.id} biome={realm.biome} light={realm.light} seed={3} fill={0.62} focusX={0.57} focusY={0.43} particles={48} />
+        <div className="app-art" aria-hidden="true" style={artFit ? { height: artFit.h } : undefined}>
+          <VoxelArt key={realm.id} biome={realm.biome} light={realm.light} seed={3} fill={0.62} focusX={artFit ? artFit.fx : 0.57} focusY={artFit ? artFit.fy : 0.43} particles={48} />
           <div className="app-art-fade" />
         </div>
       ) : null}
@@ -218,6 +253,7 @@ export default function App() {
       <main className={'app-main route-' + route}>{screens[route] || screens.home}</main>
       <CommandPalette open={palette} groups={groups} onClose={() => setPalette(false)} onSelect={(it) => { setPalette(false); it.run && it.run(); }} />
       <Toasts list={toasts} dismiss={dismiss} />
+      {updating ? <Updating state={updating} onRetry={() => startUpdate(updating.upd)} onClose={() => setUpdating(null)} /> : null}
     </div>
   );
 }

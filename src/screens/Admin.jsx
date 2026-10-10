@@ -10,7 +10,8 @@ const QUICK = [
   ['clock', 'Ночь', 'time set night'],
   ['sparkle', 'Ясно', 'weather clear'],
   ['download', 'Сохранить мир', 'save-all'],
-  ['chip', 'TPS', 'spark tps'],
+  // Vanilla, answers in the same RCON reply (spark's `tps` prints later and never reaches RCON).
+  ['chip', 'TPS', 'tick query'],
   ['users', 'Вайтлист', 'whitelist list'],
   ['lock', 'Баны', 'banlist'],
 ];
@@ -115,7 +116,8 @@ function Console({ panel, notify, onLogout }) {
       return reply;
     } catch (e) {
       const error = errText(e);
-      if (/не отвечает/.test(error)) setOffline(true);
+      // A VPN in TUN mode accepts the connection itself and drops it when the server is down.
+      if (/не отвечает|оборвалась/.test(error)) setOffline(true);
       if (!quiet) put({ ...base, error });
       return null;
     }

@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Slider, Button, Icon, Tabs, Tag, PlayerHead, RankBadge, Input } from '../ds/index.js';
-import { systemInfo, inTauri, modpack, elyLogin, checkUpdate, installUpdate, appVersion, CHANNELS, channelLabel, buildChannel, listShaders, listLocalMods, addLocalMod, removeLocalMod, setShader, applyPerfPreset } from '../native.js';
+import { CHANNEL_INFO, historyFor } from '../changelog.js';
+import { systemInfo, inTauri, modpack, elyLogin, checkUpdate, appVersion, CHANNELS, channelLabel, buildChannel, listShaders, listLocalMods, addLocalMod, removeLocalMod, setShader, applyPerfPreset } from '../native.js';
 
 const plural = (n, [one, few, many]) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many; };
 
 const NAV = [['perf', 'chip', 'Производительность'], ['mods', 'package', 'Моды'], ['look', 'sparkle', 'Внешний вид'], ['account', 'user', 'Аккаунт'], ['launcher', 'block', 'О лаунчере']];
 const PRESETS = [['low', 'Слабый ПК'], ['medium', 'Средний'], ['high', 'Мощный']];
 
-export default function Settings({ settings, update, notify, realm, openFolder }) {
-  const [nav, setNav] = useState('perf');
+export default function Settings({ settings, update, notify, realm, openFolder, initialNav, startUpdate }) {
+  const [nav, setNav] = useState(initialNav || 'perf');
   const [sys, setSys] = useState(null);
   useEffect(() => { systemInfo().then(setSys); }, []);
 
@@ -21,7 +22,6 @@ export default function Settings({ settings, update, notify, realm, openFolder }
 
   const [upd, setUpd] = useState(null);
   const [updChecking, setUpdChecking] = useState(false);
-  const [updBusy, setUpdBusy] = useState(false);
   const [builtOn, setBuiltOn] = useState(null);
   useEffect(() => { buildChannel().then(setBuiltOn).catch(() => setBuiltOn('yug')); }, []);
   const channel = settings.updateChannel || builtOn;
@@ -92,11 +92,8 @@ export default function Settings({ settings, update, notify, realm, openFolder }
     update({ updateChannel: ch });
     checkForUpdate(ch);
   };
-  const installFoundUpdate = () => {
-    if (!upd) return;
-    setUpdBusy(true);
-    installUpdate(upd).catch((e) => { setUpdBusy(false); notify({ tone: 'danger', icon: 'close', title: 'Не получилось обновиться', body: String((e && e.message) || e) }); });
-  };
+  // The update screen (App) takes it from here: progress, quiet install, restart.
+  const installFoundUpdate = () => { if (upd) startUpdate(upd); };
 
   const linkEly = async (e) => {
     e.preventDefault();
@@ -255,17 +252,42 @@ export default function Settings({ settings, update, notify, realm, openFolder }
             {inTauri ? (
               <section className="st-card st-about st-channel">
                 <div className="body-strong">Ветка обновлений</div>
-                <p className="caption">У лаунчера две линии со своими выпусками. Юг — основная, Север — новые функции раньше, чем в Юге. После смены ветки лаунчер предложит поставить её последнюю версию — даже если номер у неё меньше.</p>
+                <p className="caption">У лаунчера две линии со своими выпусками. После смены ветки лаунчер предложит поставить её последнюю версию — даже если номер у неё меньше.</p>
                 {channel ? <Tabs value={channel} onChange={pickChannel} items={CHANNELS} /> : null}
+                <div className="st-channels">
+                  {CHANNELS.map((c) => {
+                    const info = CHANNEL_INFO[c.id];
+                    return (
+                      <div key={c.id} className={'st-channel-card' + (channel === c.id ? ' is-on' : '')}>
+                        <div className="body-strong">{c.label}{builtOn === c.id ? <span className="caption"> · стоит сейчас</span> : null}</div>
+                        <p className="caption">{info.about}</p>
+                        {info.only ? <><div className="overline st-channel-only">Сейчас есть только тут</div><ul>{info.only.map((f) => <li key={f}>{f}</li>)}</ul></> : null}
+                      </div>
+                    );
+                  })}
+                </div>
                 <div className="st-row">
                   {upd ? (
-                    <Button variant="luma" icon="download" loading={updBusy} disabled={updBusy} onClick={installFoundUpdate}>Установить {upd.version} · {channelLabel(upd.channel)}</Button>
+                    <Button variant="luma" icon="download" onClick={installFoundUpdate}>Установить {upd.version} · {channelLabel(upd.channel)}</Button>
                   ) : (
                     <Button icon="download" loading={updChecking} disabled={updChecking || !channel} onClick={() => checkForUpdate()}>Проверить обновления</Button>
                   )}
                 </div>
               </section>
             ) : null}
+            <section className="st-card st-about st-changelog">
+              <div className="body-strong">Что нового</div>
+              {historyFor(builtOn || 'yug', appVersion).map((e) => (
+                <div key={e.version + (e.channel || '')} className="st-release">
+                  <div className="st-release-head">
+                    <span className="title">{e.version}</span>
+                    {e.channel ? <Tag tone={e.channel === 'sever' ? 'luma' : 'outline'}>{channelLabel(e.channel)}</Tag> : null}
+                    {e.version === appVersion && (!e.channel || e.channel === (builtOn || 'yug')) ? <span className="caption">стоит сейчас</span> : null}
+                  </div>
+                  <ul>{e.items.map((it) => <li key={it}>{it}</li>)}</ul>
+                </div>
+              ))}
+            </section>
           </>
         ) : null}
       </div>
