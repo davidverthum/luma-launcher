@@ -36,6 +36,9 @@ pub struct Loader {
 pub struct ServerInfo {
     pub name: String,
     pub address: String,
+    /// RCON port on the same host, for the admin panel; None until the server has RCON on.
+    #[serde(default)]
+    pub rcon: Option<u16>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]

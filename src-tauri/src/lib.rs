@@ -1,11 +1,13 @@
 //! Luma launcher core: system info, Java detection, settings, the server's live status,
 //! and getting players into the server (modpack sync + profile in the official launcher).
 
+mod admin;
 mod elyby;
 mod game;
 mod launch;
 mod mods;
 mod nbt;
+mod rcon;
 mod shots;
 mod slp;
 mod updates;
@@ -387,6 +389,34 @@ fn delete_screenshot(app: AppHandle, file: String) -> Result<(), String> {
     shots::delete(&game::instance_dir(&app)?, &file)
 }
 
+#[derive(Serialize)]
+struct AdminStatus {
+    configured: bool,
+    has_password: bool,
+}
+
+#[tauri::command]
+fn admin_status() -> AdminStatus {
+    AdminStatus { configured: admin::configured(), has_password: admin::has_password() }
+}
+
+/// Checks the RCON password against the server, then keeps it in the OS credential store.
+#[tauri::command]
+async fn admin_login(password: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || admin::login(&password)).await.map_err(|e| e.to_string())?
+}
+
+/// Runs one console command on the server over RCON and returns its reply.
+#[tauri::command]
+async fn admin_exec(command: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || admin::exec(&command)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn admin_logout() -> Result<(), String> {
+    admin::logout()
+}
+
 /// "yug" | "sever" — the update channel this build was released on.
 #[tauri::command]
 fn build_channel() -> &'static str {
@@ -454,6 +484,10 @@ pub fn run() {
             reveal_screenshot,
             copy_screenshot,
             delete_screenshot,
+            admin_status,
+            admin_login,
+            admin_exec,
+            admin_logout,
             build_channel,
             check_update,
             install_update

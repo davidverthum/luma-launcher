@@ -193,6 +193,18 @@ export const revealScreenshot = (file) => invoke('reveal_screenshot', { file });
 export const copyScreenshot = (file) => invoke('copy_screenshot', { file });
 export const deleteScreenshot = (file) => invoke('delete_screenshot', { file });
 
+/** Whether `name` (an Ely.by nickname) is in modpack.json → admins. Only hides the tab — the
+ * RCON password is what actually lets commands through. */
+export const isAdmin = (name) => !!name && (pack.admins || []).some((a) => a.toLowerCase() === String(name).toLowerCase());
+
+/** { configured, has_password } — RCON port set in modpack.json, password saved on this computer. */
+export const adminStatus = () => (inTauri ? invoke('admin_status') : Promise.resolve({ configured: false, has_password: false }));
+/** Checks the password against the server (runs `list`), then keeps it in the OS credential store. */
+export const adminLogin = (password) => invoke('admin_login', { password });
+/** One console command over RCON; resolves with the server's reply. */
+export const adminExec = (command) => invoke('admin_exec', { command });
+export const adminLogout = () => invoke('admin_logout');
+
 /** Update channels: two lines of the launcher, each with its own releases. */
 export const CHANNELS = [{ id: 'yug', label: 'Юг' }, { id: 'sever', label: 'Север' }];
 export const channelLabel = (id) => (CHANNELS.find((c) => c.id === id) || CHANNELS[0]).label;

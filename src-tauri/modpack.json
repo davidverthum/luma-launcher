@@ -8,8 +8,11 @@
  "server": {
   "name": "Luma",
   "address": "x1.qwertyx.host:28828",
-  "map": "http://x1.qwertyx.host:29603"
+  "map": "http://x1.qwertyx.host:29603",
+  "rcon": null,
+  "panel": "https://qwertyx.host/dashboard/server/console/9a5bf04d"
  },
+ "admins": ["Rimfyy"],
  "auth": {
   "url": "http://localhost:8787"
  },

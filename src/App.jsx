@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RealmRail, TitleBar, CommandPalette, Toast, Button, VoxelArt } from './ds/index.js';
-import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel } from './native.js';
+import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel, isAdmin } from './native.js';
 import { useServer, liveRealm } from './server.js';
 import Login from './screens/Login.jsx';
 import Home from './screens/Home.jsx';
@@ -10,6 +10,7 @@ import Store from './screens/Store.jsx';
 import News from './screens/News.jsx';
 import MapScreen from './screens/Map.jsx';
 import Shots from './screens/Shots.jsx';
+import Admin from './screens/Admin.jsx';
 import Settings from './screens/Settings.jsx';
 
 const DEFAULTS = {
@@ -63,6 +64,7 @@ let toastSeq = 0;
 const NAV = [{ id: 'home', label: 'Главная' }, { id: 'realms', label: 'Сервер' }, { id: 'map', label: 'Карта' }, { id: 'wardrobe', label: 'Гардероб' }, { id: 'news', label: 'Новости' }];
 // The title bar has no room for another tab at the minimum window width, so the album lives in the rail.
 const RAIL_FOOTER = [{ id: 'shots', icon: 'camera', label: 'Скриншоты' }, { id: 'settings', icon: 'settings', label: 'Настройки' }];
+const RAIL_FOOTER_ADMIN = [RAIL_FOOTER[0], { id: 'admin', icon: 'crown', label: 'Админка' }, RAIL_FOOTER[1]];
 
 export default function App() {
   const [settings, update] = useSettings();
@@ -142,6 +144,7 @@ export default function App() {
 
   const server = useServer();
   const realm = liveRealm(server);
+  const admin = !!settings && isAdmin(settings.mc ? settings.mc.name : settings.profile && settings.profile.name);
   const setRealm = () => update({ realm: 'luma' });
   const openFolder = async () => {
     try {
@@ -167,8 +170,9 @@ export default function App() {
     { group: 'Сервер', items: [
       { id: 'copy', icon: 'globe', label: 'Скопировать адрес сервера', hint: modpack.server.address, keywords: 'адрес ip айпи', run: copyAddress },
       { id: 'mods', icon: 'package', label: 'Сборка: ' + modpack.mods.length + ' модов', hint: 'Fabric ' + modpack.minecraft, keywords: 'моды mods', run: () => setRoute('settings') },
+      ...(admin ? [{ id: 'admin', icon: 'crown', label: 'Админка', hint: 'команды, игроки, объявления', keywords: 'админ консоль rcon кик бан команда', run: () => setRoute('admin') }] : []),
     ] },
-  ], [realm.id, settings && settings.ram, settings && settings.theme]);
+  ], [realm.id, settings && settings.ram, settings && settings.theme, admin]);
 
   if (!settings) return <div className="app-boot" />;
   if (!settings.profile) {
@@ -189,6 +193,7 @@ export default function App() {
     news: <News {...screenProps} />,
     map: <MapScreen {...screenProps} />,
     shots: <Shots {...screenProps} />,
+    admin: admin ? <Admin {...screenProps} /> : null,
     settings: <Settings {...screenProps} />,
   };
 
@@ -201,7 +206,7 @@ export default function App() {
         </div>
       ) : null}
       <div className="app-rail">
-        <RealmRail realms={[realm]} value={realm.id} onChange={() => setRoute('home')} footer={RAIL_FOOTER} onFooter={(id) => setRoute(id)} />
+        <RealmRail realms={[realm]} value={realm.id} onChange={() => setRoute('home')} footer={admin ? RAIL_FOOTER_ADMIN : RAIL_FOOTER} onFooter={(id) => setRoute(id)} />
       </div>
       <div className="app-top">
         <TitleBar nav={NAV} active={['home', 'realms', 'map', 'wardrobe', 'news'].includes(route) ? route : 'none'} onNav={setRoute}
