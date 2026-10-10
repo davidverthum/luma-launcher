@@ -1,0 +1,106 @@
+//! Update channels. «Юг» is the main line: tags `v*`, normal releases — the repo's "latest"
+//! release, the same feed launchers without channels follow. «Север» is the `sever` branch: tags
+//! `sever-v*`, published as prereleases so "latest" stays Юг; its newest release is found
+//! through the GitHub API. Either way the updater gets that release's latest.json.
+use crate::game;
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Url};
+use tauri_plugin_updater::{Update, UpdaterExt};
+
+const REPO: &str = "davidverthum/luma-launcher";
+
+/// The channel this build came from: CI sets `LUMA_CHANNEL` from the tag; local builds count as Юг.
+pub const BUILD_CHANNEL: &str = match option_env!("LUMA_CHANNEL") {
+    Some(c) => c,
+    None => "yug",
+};
+
+#[derive(Deserialize)]
+struct Release {
+    tag_name: String,
+    draft: bool,
+    assets: Vec<Asset>,
+}
+
+#[derive(Deserialize)]
+struct Asset {
+    name: String,
+    browser_download_url: String,
+}
+
+#[derive(Serialize)]
+pub struct UpdateInfo {
+    channel: String,
+    /// The running build's channel — differs from `channel` when the player switched.
+    from_channel: &'static str,
+    version: String,
+    current_version: String,
+    notes: Option<String>,
+}
+
+/// latest.json of the channel's newest release. The API lists releases newest first.
+async fn manifest_url(client: &reqwest::Client, channel: &str) -> Result<Url, String> {
+    if channel == "yug" {
+        return Url::parse(&format!("https://github.com/{REPO}/releases/latest/download/latest.json")).map_err(|e| e.to_string());
+    }
+    let releases: Vec<Release> = client
+        .get(format!("https://api.github.com/repos/{REPO}/releases?per_page=30"))
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+    let url = releases
+        .into_iter()
+        .filter(|r| !r.draft && r.tag_name.starts_with("sever-v"))
+        .find_map(|r| r.assets.into_iter().find(|a| a.name == "latest.json"))
+        .map(|a| a.browser_download_url)
+        .ok_or("в ветке «Север» пока нет выпусков")?;
+    Url::parse(&url).map_err(|e| e.to_string())
+}
+
+/// `None` picks the build's own channel. Within one channel only a newer version counts; when
+/// the player has switched channels, the other channel's newest build counts even if its
+/// version number is lower — that is the whole point of switching.
+async fn find(app: &AppHandle, channel: Option<&str>) -> Result<(String, Option<Update>), String> {
+    let channel = channel.unwrap_or(BUILD_CHANNEL).to_string();
+    if channel != "yug" && channel != "sever" {
+        return Err(format!("неизвестная ветка {channel}"));
+    }
+    let url = manifest_url(&game::http()?, &channel).await?;
+    let switching = channel != BUILD_CHANNEL;
+    let update = app
+        .updater_builder()
+        .endpoints(vec![url])
+        .map_err(|e| e.to_string())?
+        .version_comparator(move |current, remote| switching || remote.version > current)
+        .build()
+        .map_err(|e| e.to_string())?
+        .check()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok((channel, update))
+}
+
+pub async fn check(app: &AppHandle, channel: Option<&str>) -> Result<Option<UpdateInfo>, String> {
+    let (channel, update) = find(app, channel).await?;
+    Ok(update.map(|u| UpdateInfo {
+        channel,
+        from_channel: BUILD_CHANNEL,
+        version: u.version.clone(),
+        current_version: u.current_version.clone(),
+        notes: u.body.clone(),
+    }))
+}
+
+/// Checks again (the found update isn't kept between calls), then downloads and installs it.
+/// The caller restarts the app afterwards.
+pub async fn install(app: &AppHandle, channel: Option<&str>) -> Result<(), String> {
+    let (_, update) = find(app, channel).await?;
+    let update = update.ok_or("уже стоит последняя версия этой ветки")?;
+    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())
+}

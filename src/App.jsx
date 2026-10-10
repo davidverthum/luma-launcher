@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RealmRail, TitleBar, CommandPalette, Toast, Button, VoxelArt } from './ds/index.js';
-import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion } from './native.js';
+import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel } from './native.js';
 import { useServer, liveRealm } from './server.js';
 import Login from './screens/Login.jsx';
 import Home from './screens/Home.jsx';
@@ -24,6 +24,7 @@ const DEFAULTS = {
   balance: 1250,
   shader: null,
   perfPreset: null,
+  updateChannel: null, // 'yug' | 'sever'; null — the channel this build came from
 };
 
 function useSettings() {
@@ -95,13 +96,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mcToken]);
 
+  // Once per launch, on the channel picked in settings (none picked: the build's own).
+  const settingsLoaded = !!settings;
   useEffect(() => {
+    if (!settingsLoaded) return;
     let alive = true;
-    checkUpdate().then((upd) => {
+    checkUpdate(settings.updateChannel).then((upd) => {
       if (!alive || !upd) return;
+      const switching = upd.channel !== upd.from_channel;
       notify({
-        icon: 'download', title: 'Доступно обновление ' + upd.version, duration: 0,
-        body: 'Сейчас установлена ' + appVersion + '. Лаунчер скачает и установит новую версию, затем перезапустится.',
+        icon: 'download', duration: 0,
+        title: switching ? 'Переход на ветку «' + channelLabel(upd.channel) + '» · ' + upd.version : 'Доступно обновление ' + upd.version,
+        body: switching
+          ? 'Сейчас стоит ' + appVersion + ' из ветки «' + channelLabel(upd.from_channel) + '». Лаунчер поставит ветку «' + channelLabel(upd.channel) + '» и перезапустится.'
+          : 'Сейчас установлена ' + appVersion + '. Лаунчер скачает и установит новую версию, затем перезапустится.',
         actions: [{ label: 'Установить', icon: 'download', variant: 'luma', run: () => {
           notify({ icon: 'download', title: 'Устанавливаем ' + upd.version, body: 'Не закрывай лаунчер…', duration: 0 });
           installUpdate(upd).catch((e) => notify({ tone: 'danger', icon: 'close', title: 'Не получилось обновиться', body: String((e && e.message) || e), duration: 10000 }));
@@ -110,7 +118,7 @@ export default function App() {
     }).catch(() => {});
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [settingsLoaded]);
 
   const notify = useCallback((t) => {
     const id = ++toastSeq;
