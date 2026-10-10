@@ -2,7 +2,6 @@
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { check as checkUpdateApi } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import pack from '../src-tauri/modpack.json';
 import pkg from '../package.json';
@@ -194,15 +193,23 @@ export const revealScreenshot = (file) => invoke('reveal_screenshot', { file });
 export const copyScreenshot = (file) => invoke('copy_screenshot', { file });
 export const deleteScreenshot = (file) => invoke('delete_screenshot', { file });
 
-/** Checks the GitHub release feed for a newer build; null when already up to date. */
-export function checkUpdate() {
+/** Update channels: two lines of the launcher, each with its own releases. */
+export const CHANNELS = [{ id: 'yug', label: 'Юг' }, { id: 'sever', label: 'Север' }];
+export const channelLabel = (id) => (CHANNELS.find((c) => c.id === id) || CHANNELS[0]).label;
+
+/** The channel this build was released on. */
+export const buildChannel = () => (inTauri ? invoke('build_channel') : Promise.resolve('yug'));
+
+/** Checks the channel's newest release (null channel: the build's own); null when already up to date.
+ * Resolves with { channel, version, current_version, notes }. */
+export function checkUpdate(channel) {
   if (!inTauri) return Promise.resolve(null);
-  return checkUpdateApi();
+  return invoke('check_update', { channel: channel || null });
 }
 
 /** Downloads + installs an update found by `checkUpdate`, then restarts into it. */
-export async function installUpdate(update, onProgress) {
-  await update.downloadAndInstall((event) => onProgress && onProgress(event));
+export async function installUpdate(update) {
+  await invoke('install_update', { channel: update.channel });
   await relaunch();
 }
 

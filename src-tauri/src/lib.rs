@@ -8,6 +8,7 @@ mod mods;
 mod nbt;
 mod shots;
 mod slp;
+mod updates;
 
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, process::Command, time::Duration};
@@ -386,6 +387,24 @@ fn delete_screenshot(app: AppHandle, file: String) -> Result<(), String> {
     shots::delete(&game::instance_dir(&app)?, &file)
 }
 
+/// "yug" | "sever" — the update channel this build was released on.
+#[tauri::command]
+fn build_channel() -> &'static str {
+    updates::BUILD_CHANNEL
+}
+
+/// `channel`: "yug" | "sever", or null for the build's own. Null result: already up to date.
+#[tauri::command]
+async fn check_update(app: AppHandle, channel: Option<String>) -> Result<Option<updates::UpdateInfo>, String> {
+    updates::check(&app, channel.as_deref()).await
+}
+
+/// Downloads and installs the channel's update; the frontend restarts the app afterwards.
+#[tauri::command]
+async fn install_update(app: AppHandle, channel: Option<String>) -> Result<(), String> {
+    updates::install(&app, channel.as_deref()).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // reqwest is built without a bundled crypto provider; ring keeps every target buildable.
@@ -434,7 +453,10 @@ pub fn run() {
             open_screenshot,
             reveal_screenshot,
             copy_screenshot,
-            delete_screenshot
+            delete_screenshot,
+            build_channel,
+            check_update,
+            install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running Luma");

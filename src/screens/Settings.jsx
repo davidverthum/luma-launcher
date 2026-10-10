@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Slider, Button, Icon, Tabs, Tag, PlayerHead, RankBadge, Input } from '../ds/index.js';
-import { systemInfo, inTauri, modpack, elyLogin, checkUpdate, installUpdate, appVersion, listShaders, listLocalMods, addLocalMod, removeLocalMod, setShader, applyPerfPreset } from '../native.js';
+import { systemInfo, inTauri, modpack, elyLogin, checkUpdate, installUpdate, appVersion, CHANNELS, channelLabel, buildChannel, listShaders, listLocalMods, addLocalMod, removeLocalMod, setShader, applyPerfPreset } from '../native.js';
 
 const plural = (n, [one, few, many]) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many; };
 
@@ -22,6 +22,9 @@ export default function Settings({ settings, update, notify, realm, openFolder }
   const [upd, setUpd] = useState(null);
   const [updChecking, setUpdChecking] = useState(false);
   const [updBusy, setUpdBusy] = useState(false);
+  const [builtOn, setBuiltOn] = useState(null);
+  useEffect(() => { buildChannel().then(setBuiltOn).catch(() => setBuiltOn('yug')); }, []);
+  const channel = settings.updateChannel || builtOn;
 
   const [presetBusy, setPresetBusy] = useState(null);
   const runPreset = (preset) => {
@@ -77,11 +80,17 @@ export default function Settings({ settings, update, notify, realm, openFolder }
     removeLocalMod(filename).then(refreshLocalMods).catch((e) => notify({ tone: 'danger', icon: 'close', title: 'Не удалилось', body: String((e && e.message) || e) }));
   };
 
-  const checkForUpdate = () => {
+  const checkForUpdate = (ch = channel) => {
+    setUpd(null);
     setUpdChecking(true);
-    checkUpdate().then((u) => { setUpd(u); if (!u) notify({ icon: 'check', title: 'Это последняя версия', body: 'Luma ' + appVersion + ' — обновлений нет.' }); })
+    checkUpdate(ch).then((u) => { setUpd(u); if (!u) notify({ icon: 'check', title: 'Это последняя версия', body: 'Luma ' + appVersion + ' — в ветке «' + channelLabel(ch) + '» обновлений нет.' }); })
       .catch((e) => notify({ tone: 'danger', icon: 'close', title: 'Не проверилось', body: String((e && e.message) || e) }))
       .finally(() => setUpdChecking(false));
+  };
+  const pickChannel = (ch) => {
+    if (ch === channel) return;
+    update({ updateChannel: ch });
+    checkForUpdate(ch);
   };
   const installFoundUpdate = () => {
     if (!upd) return;
@@ -238,18 +247,21 @@ export default function Settings({ settings, update, notify, realm, openFolder }
         ) : null}
         {nav === 'launcher' ? (
           <>
-            <header className="st-head"><div><h1 className="display-lg">О лаунчере</h1><p className="body st-sub">Luma {appVersion} · {inTauri ? 'приложение' : 'браузерная версия'} · {sys ? [sys.os, sys.os_version, sys.arch].filter(Boolean).join(' ') : ''}</p></div></header>
+            <header className="st-head"><div><h1 className="display-lg">О лаунчере</h1><p className="body st-sub">Luma {appVersion}{builtOn ? ' · ветка «' + channelLabel(builtOn) + '»' : ''} · {inTauri ? 'приложение' : 'браузерная версия'} · {sys ? [sys.os, sys.os_version, sys.arch].filter(Boolean).join(' ') : ''}</p></div></header>
             <section className="st-card st-about">
               <p className="body">Собрано на Tauri 2 (Rust) и React. Интерфейс — дизайн-система Luma: стекло, свет миров, пиксельные цифры и воксельные острова, которые рисуются кодом.</p>
               <p className="body st-sub">Сервер: {modpack.server.address}. Вход на сервер — через Ely.by, без Microsoft.</p>
             </section>
             {inTauri ? (
-              <section className="st-card st-about">
+              <section className="st-card st-about st-channel">
+                <div className="body-strong">Ветка обновлений</div>
+                <p className="caption">У лаунчера две линии со своими выпусками. Юг — основная, Север — новые функции раньше, чем в Юге. После смены ветки лаунчер предложит поставить её последнюю версию — даже если номер у неё меньше.</p>
+                {channel ? <Tabs value={channel} onChange={pickChannel} items={CHANNELS} /> : null}
                 <div className="st-row">
                   {upd ? (
-                    <Button variant="luma" icon="download" loading={updBusy} disabled={updBusy} onClick={installFoundUpdate}>Установить {upd.version}</Button>
+                    <Button variant="luma" icon="download" loading={updBusy} disabled={updBusy} onClick={installFoundUpdate}>Установить {upd.version} · {channelLabel(upd.channel)}</Button>
                   ) : (
-                    <Button icon="download" loading={updChecking} disabled={updChecking} onClick={checkForUpdate}>Проверить обновления</Button>
+                    <Button icon="download" loading={updChecking} disabled={updChecking || !channel} onClick={() => checkForUpdate()}>Проверить обновления</Button>
                   )}
                 </div>
               </section>
