@@ -54,13 +54,40 @@ async fn manifest_url(client: &reqwest::Client, channel: &str) -> Result<Url, St
         .json()
         .await
         .map_err(|e| e.to_string())?;
-    let url = releases
-        .into_iter()
-        .filter(|r| !r.draft && r.tag_name.starts_with("sever-v"))
-        .find_map(|r| r.assets.into_iter().find(|a| a.name == "latest.json"))
-        .map(|a| a.browser_download_url)
-        .ok_or("в ветке «Север» пока нет выпусков")?;
+    let url = newest_sever(releases).ok_or("в ветке «Север» пока нет выпусков")?;
     Url::parse(&url).map_err(|e| e.to_string())
+}
+
+/// `sever-v0.1.10` → (0, 1, 10).
+fn sever_version(tag: &str) -> Option<(u64, u64, u64)> {
+    let mut parts = tag.strip_prefix("sever-v")?.split('.').map(|p| p.parse::<u64>().ok());
+    Some((parts.next()??, parts.next()??, parts.next()??))
+}
+
+/// latest.json of the highest Север version — by number, not by the order the API lists them in.
+fn newest_sever(releases: Vec<Release>) -> Option<String> {
+    releases
+        .into_iter()
+        .filter(|r| !r.draft)
+        .filter_map(|r| Some((sever_version(&r.tag_name)?, r.assets.into_iter().find(|a| a.name == "latest.json")?)))
+        .max_by_key(|(v, _)| *v)
+        .map(|(_, a)| a.browser_download_url)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn release(tag: &str, draft: bool) -> Release {
+        Release { tag_name: tag.into(), draft, assets: vec![Asset { name: "latest.json".into(), browser_download_url: format!("https://x/{tag}") }] }
+    }
+
+    #[test]
+    fn picks_highest_sever_version() {
+        let list = vec![release("v0.1.9", false), release("sever-v0.1.9", false), release("sever-v0.1.10", false), release("sever-v0.2.0", true)];
+        assert_eq!(newest_sever(list).as_deref(), Some("https://x/sever-v0.1.10"));
+        assert_eq!(newest_sever(vec![release("v0.1.4", false)]), None);
+    }
 }
 
 /// `None` picks the build's own channel. Within one channel only a newer version counts; when
