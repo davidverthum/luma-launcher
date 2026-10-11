@@ -35,6 +35,19 @@ export function useTheme() {
   return theme;
 }
 
+/** An attribute of <html>, live — e.g. data-accent, to re-resolve colors when it changes. */
+export function useRootAttr(name) {
+  const get = () => document.documentElement.getAttribute(name);
+  const [value, setValue] = useState(get);
+  useEffect(() => {
+    const mo = new MutationObserver(() => setValue(get()));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: [name] });
+    return () => mo.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name]);
+  return value;
+}
+
 /** Resolve any CSS color expression (e.g. "var(--realm-techno)") to [r,g,b] in the context of an element. */
 export function resolveColor(expr, el) {
   const probe = document.createElement('span');
@@ -82,6 +95,22 @@ export function useSize(ref) {
     return () => ro.disconnect();
   }, []);
   return size;
+}
+
+/** Device pixels per CSS pixel — Windows scale times the webview zoom; follows both as they change. */
+export function useDevicePixelRatio() {
+  const [dpr, setDpr] = useState(() => window.devicePixelRatio || 1);
+  useEffect(() => {
+    let mq = null;
+    const watch = () => {
+      setDpr(window.devicePixelRatio || 1);
+      mq = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+      mq.addEventListener('change', watch, { once: true });
+    };
+    watch();
+    return () => mq.removeEventListener('change', watch);
+  }, []);
+  return dpr;
 }
 
 export const fmtInt = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');

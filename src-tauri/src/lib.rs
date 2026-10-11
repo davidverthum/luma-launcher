@@ -298,19 +298,12 @@ async fn ely_refresh(access_token: String, client_token: String) -> Result<elyby
     elyby::refresh(&client, &access_token, &client_token).await
 }
 
-/// The player's real skin/cape from Ely.by's skin system, as data URIs — no auth needed,
-/// this is the same texture the server itself sees.
-#[tauri::command]
-async fn ely_textures(name: String) -> Result<elyby::Textures, String> {
-    let client = game::http()?;
-    Ok(elyby::textures(&client, &name).await)
-}
-
-/// Any player's Ely.by skin as a data URI (None: no skin set) — the heads in player lists.
+/// Any player's Ely.by skin as a data URI (None: no skin set) — the wardrobe and the heads in
+/// player lists. No auth needed: this is the same texture the server itself sees.
 #[tauri::command]
 async fn ely_skin(name: String) -> Result<Option<String>, String> {
     let client = game::http()?;
-    Ok(elyby::skin(&client, &name).await)
+    elyby::skin(&client, &name).await
 }
 
 /// Syncs mods, then launches Minecraft directly (no official launcher) using an Ely.by
@@ -513,7 +506,6 @@ pub fn run() {
             auth_me,
             ely_login,
             ely_refresh,
-            ely_textures,
             ely_skin,
             play_direct,
             list_shaders,

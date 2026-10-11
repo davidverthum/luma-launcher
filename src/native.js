@@ -145,25 +145,22 @@ export function playDirect(ramGb, session) {
   return invoke('play_direct', { ramGb, session });
 }
 
-/** The player's real skin/cape from Ely.by, as data URIs ({ skin, cape }, either may be null). */
-export function elyTextures(name) {
-  if (!inTauri) return Promise.resolve({ skin: null, cape: null });
-  return invoke('ely_textures', { name });
-}
-
 const SKIN_TTL = 10 * 60 * 1000;
-const skinCache = new Map(); // lower-case nick → { at, promise }
+const SKIN_RETRY = 15 * 1000;
+const skinCache = new Map(); // lower-case nick → { at, ttl, promise }
 
 /** Any player's Ely.by skin as a data URI, or null (no skin, offline, browser preview).
- * Cached for 10 minutes so a list re-render doesn't refetch; a changed skin shows up after that. */
-export function skinFor(name) {
+ * Cached for 10 minutes so a list re-render doesn't refetch; a changed skin shows up after that.
+ * A failed request is kept only 15 seconds, so a network hiccup doesn't stick. `fresh` skips the cache. */
+export function skinFor(name, fresh = false) {
   if (!inTauri || !name) return Promise.resolve(null);
   const key = String(name).toLowerCase();
   const hit = skinCache.get(key);
-  if (hit && Date.now() - hit.at < SKIN_TTL) return hit.promise;
-  const promise = invoke('ely_skin', { name }).catch(() => null);
-  skinCache.set(key, { at: Date.now(), promise });
-  return promise;
+  if (!fresh && hit && Date.now() - hit.at < hit.ttl) return hit.promise;
+  const entry = { at: Date.now(), ttl: SKIN_TTL };
+  entry.promise = invoke('ely_skin', { name }).catch(() => { entry.ttl = SKIN_RETRY; return null; });
+  skinCache.set(key, entry);
+  return entry.promise;
 }
 
 /** The curated shader packs ({ slug, name, tier, ... }) — same list for everyone. */

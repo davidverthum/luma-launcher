@@ -78,35 +78,18 @@ pub async fn refresh(client: &reqwest::Client, access_token: &str, client_token:
     serde_json::from_value(v).map_err(|e| e.to_string())
 }
 
-/// Fetches a PNG texture from the skin system (plain, unauthenticated) as a data URI;
-/// `None` when the player has no texture of that kind set.
-async fn fetch_texture_data_uri(client: &reqwest::Client, url: String) -> Option<String> {
-    let resp = client.get(url).send().await.ok()?;
+/// A player's real, currently-set Ely.by skin as a data URI — the same texture the server sees;
+/// for the wardrobe and the heads in player lists. `Ok(None)`: no skin set; `Err`: the skin
+/// system couldn't be reached, worth asking again soon.
+pub async fn skin(client: &reqwest::Client, name: &str) -> Result<Option<String>, String> {
+    let url = format!("https://skinsystem.ely.by/skins/{}.png", urlencoding_minimal(name));
+    let resp = client.get(url).send().await.map_err(|e| e.to_string())?;
     if !resp.status().is_success() {
-        return None;
+        return Ok(None);
     }
-    let bytes = resp.bytes().await.ok()?;
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
     use base64::Engine;
-    Some(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
-}
-
-#[derive(Serialize)]
-pub struct Textures {
-    pub skin: Option<String>,
-    pub cape: Option<String>,
-}
-
-/// The player's real, currently-set Ely.by skin and cape — the same textures the server sees.
-pub async fn textures(client: &reqwest::Client, name: &str) -> Textures {
-    let name = urlencoding_minimal(name);
-    let skin = fetch_texture_data_uri(client, format!("https://skinsystem.ely.by/skins/{name}.png")).await;
-    let cape = fetch_texture_data_uri(client, format!("https://skinsystem.ely.by/cloaks/{name}.png")).await;
-    Textures { skin, cape }
-}
-
-/// Just the skin — for the small heads in player lists, where the cape isn't needed.
-pub async fn skin(client: &reqwest::Client, name: &str) -> Option<String> {
-    fetch_texture_data_uri(client, format!("https://skinsystem.ely.by/skins/{}.png", urlencoding_minimal(name))).await
+    Ok(Some(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes))))
 }
 
 /// Minimal percent-encoding for a path segment, byte-wise (so multi-byte UTF-8 stays correct).

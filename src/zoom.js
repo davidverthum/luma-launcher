@@ -1,6 +1,6 @@
 // The UI is laid out for a 1280×800 window. A bigger one (maximized, fullscreen) zooms the whole
 // webview up — like Ctrl + in a browser — instead of stretching the layout thin with gaps; the
-// voxel art stays crisp because the webview renders at the higher scale.
+// voxel art redraws for the new scale and stays crisp (voxel.jsx).
 import { useEffect } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrentWebview } from '@tauri-apps/api/webview';

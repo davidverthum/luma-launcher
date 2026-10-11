@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SkinViewer, Tabs, Button, Tag, Icon, RankBadge, defaultCape } from '../ds/index.js';
-import { elyTextures, openUrl } from '../native.js';
+import { skinFor, openUrl } from '../native.js';
 
 const CAPES = [
   { id: 'luma', name: 'Плащ Luma', icon: 'block', rarity: 'Сезонный', tone: 'var(--luma-ink)', hex: '#d4ff3d', owned: true },
@@ -57,18 +57,19 @@ export default function Wardrobe({ settings, update, notify }) {
   const it = CAPES.find((c) => c.id === sel) || CAPES[0];
   const capeTex = useMemo(() => (sel === 'luma' ? defaultCape() : capeTexture(it.hex)), [sel]);
   const worn = settings.cape || 'luma';
-  const mcName = settings.mc && settings.mc.name;
+  const mcName = (settings.mc && settings.mc.name) || settings.profile.name;
 
-  const loadSkin = () => {
+  // The same cached skin as the player's head in the title bar, so both always match.
+  const loadSkin = (fresh = false) => {
     if (!mcName) { setElySkin(null); setElyLoading(false); return; }
     setElyLoading(true);
-    elyTextures(mcName)
-      .then((t) => (t.skin ? normalizeSkin(t.skin) : null))
+    skinFor(mcName, fresh)
+      .then((skin) => (skin ? normalizeSkin(skin) : null))
       .then(setElySkin)
       .catch(() => setElySkin(null))
       .finally(() => setElyLoading(false));
   };
-  useEffect(loadSkin, [mcName]);
+  useEffect(() => loadSkin(), [mcName]);
 
   return (
     <div className="wardrobe">
@@ -89,7 +90,7 @@ export default function Wardrobe({ settings, update, notify }) {
           <span className="caption"><Icon name="arrow-left" size={12} /> Тяни, чтобы повернуть <Icon name="arrow-right" size={12} /></span>
           <span className="wr-skin-name"><span className="body-strong">{elyLoading ? 'Загружаем скин…' : elySkin ? 'Скин с Ely.by' : 'Скин по умолчанию'}</span><Tag tone="outline">64×64</Tag></span>
           <span className="wr-skin-actions">
-            <Button size="sm" variant="ghost" onClick={loadSkin} disabled={elyLoading}>Обновить</Button>
+            <Button size="sm" variant="ghost" onClick={() => loadSkin(true)} disabled={elyLoading}>Обновить</Button>
             <Button size="sm" icon="shirt" onClick={() => openUrl('https://ely.by/skins')}>Изменить на ely.by</Button>
           </span>
         </div>
