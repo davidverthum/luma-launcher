@@ -3,6 +3,7 @@ import { PlayButton, IconButton, Tag, Led, Ping, HeadStack, Emblem, FriendRow, I
 import { onlineHistory } from '../server.js';
 import { inTauri, modpack, onProgress, playDirect, screenshotSrc } from '../native.js';
 import { useScreenshots, shotCount, dayLabel, timeLabel } from '../shots.js';
+import { PlayMenu } from './PlayMenu.jsx';
 
 const HIGHLIGHTS = ['Touhou Little Maid: Orihime', 'Waystones', "Traveler's Backpack", "Farmer's Delight Refabricated", "Xaero's Minimap", "Xaero's World Map", 'Carry On', 'Comforts', 'EMI', 'Sodium', 'Iris Shaders', 'Jade'];
 const CATS = ['Чэнь', 'Орин', 'Мике'];
@@ -33,9 +34,11 @@ function useArtFit(kickerRef, onArtFit) {
   }, []);
 }
 
-export default function Home({ realm: r, settings, notify, setRoute, openFolder, server, onArtFit }) {
+export default function Home({ realm: r, settings, update, notify, setRoute, openSettings, openFolder, server, onArtFit }) {
   const kickerRef = useRef(null);
+  const playRef = useRef(null);
   useArtFit(kickerRef, onArtFit);
+  const [menu, setMenu] = useState(false);
   const [state, setState] = useState('ready');
   const [p, setP] = useState(0);
   const [stage, setStage] = useState('');
@@ -82,6 +85,16 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
   };
 
   const sub = state === 'ready' ? r.name + ' · Fabric ' + modpack.minecraft + ' · ' + (ram ? ram + ' ГБ' : 'память авто') : stage;
+  const setRam = (gb) => update((s) => ({ ...s, ram: { ...s.ram, [r.id]: gb } }));
+  const closeMenu = (refocus) => {
+    setMenu(false);
+    if (refocus && playRef.current) playRef.current.querySelector('.lm-play-menu').focus();
+  };
+  const menuActions = [
+    { id: 'folder', icon: 'folder', label: 'Папка игры', hint: 'моды, миры, конфиги', run: () => openFolder() },
+    { id: 'shots', icon: 'camera', label: 'Скриншоты', hint: shots && shots.length ? shotCount(shots.length) : 'альбом', run: () => setRoute('shots') },
+    { id: 'mods', icon: 'package', label: 'Моды', hint: 'свои моды и сборка', run: () => openSettings('mods') },
+  ];
 
   return (
     <div className="home">
@@ -100,7 +113,10 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
             {here.length ? <span className="hero-here"><HeadStack names={here} max={3} size={24} /><span className="caption">{here[0]}{here.length > 1 ? ' и ещё ' + (here.length - 1) : ''} уже здесь</span></span> : null}
           </div>
           <div className="hero-play">
-            <PlayButton state={state} progress={p} sub={sub} onClick={play} onMenu={() => setRoute('settings')} menuLabel="Память и запуск" />
+            <div className="play-anchor" ref={playRef}>
+              <PlayButton state={state} progress={p} sub={sub} onClick={play} onMenu={() => setMenu((o) => !o)} menuLabel="Память, папки и моды" className={menu ? 'is-menu-open' : undefined} />
+              <PlayMenu open={menu} onClose={closeMenu} ram={ram} onRam={setRam} actions={menuActions} />
+            </div>
             <IconButton icon="folder" label="Папка игры" variant="glass" size="lg" onClick={() => openFolder()} />
             <IconButton icon="settings" label="Настройки" variant="glass" size="lg" onClick={() => setRoute('settings')} />
           </div>

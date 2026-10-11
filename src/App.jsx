@@ -3,6 +3,7 @@ import { RealmRail, TitleBar, CommandPalette, Toast, Button, VoxelArt } from './
 import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel, isAdmin, buildChannel, onGameCrash, notifySystem } from './native.js';
 import { notesFor } from './changelog.js';
 import { useFitZoom } from './zoom.js';
+import { useAccent } from './accent.js';
 import { useServer, liveRealm } from './server.js';
 import Login from './screens/Login.jsx';
 import Home from './screens/Home.jsx';
@@ -22,6 +23,7 @@ const DEFAULTS = {
   mc: null,
   realm: 'luma',
   theme: 'auto',
+  accent: 'luma', // accent.js
   ram: {},
   toggles: { cycle: true, preload: true, overlay: false, shaders: false },
   java: 'j21',
@@ -81,6 +83,7 @@ export default function App() {
   const [artFit, setArtFit] = useState(null); // { h, fy, fx } from Home — see useArtFit
   const isMac = platform() === 'mac';
   useThemeMode(settings && settings.theme);
+  useAccent(settings && settings.accent);
   useFitZoom();
   useEffect(() => { if (route !== 'settings') setSettingsNav(null); }, [route]);
 
@@ -251,7 +254,8 @@ export default function App() {
     );
   }
 
-  const screenProps = { settings, update, notify, realm, setRealm, setRoute, openFolder, server, copyAddress, startUpdate };
+  const openSettings = (tab) => { setSettingsNav(tab || null); setRoute('settings'); };
+  const screenProps = { settings, update, notify, realm, setRealm, setRoute, openSettings, openFolder, server, copyAddress, startUpdate };
   const screens = {
     home: <Home {...screenProps} onArtFit={setArtFit} />,
     realms: <Realms {...screenProps} />,

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Slider, Button, Icon, Tabs, Tag, PlayerHead, RankBadge, Input, Toggle } from '../ds/index.js';
 import { CHANNEL_INFO, historyFor } from '../changelog.js';
+import { ACCENTS } from '../accent.js';
 import { systemInfo, inTauri, modpack, packMods, openUrl, elyLogin, checkUpdate, appVersion, CHANNELS, channelLabel, buildChannel, listShaders, listLocalMods, addLocalMod, removeLocalMod, setLocalModEnabled, modCards, setShader, applyPerfPreset } from '../native.js';
 
 const plural = (n, [one, few, many]) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many; };
@@ -251,6 +252,24 @@ export default function Settings({ settings, update, notify, realm, openFolder, 
             <section className="st-card st-look">
               <div className="body-strong">Тема</div>
               <Tabs value={settings.theme} onChange={(t) => update({ theme: t })} items={[{ id: 'auto', label: 'По циклу дня', icon: 'clock' }, { id: 'night', label: 'Ночь', icon: 'sparkle' }, { id: 'day', label: 'День', icon: 'bolt' }]} />
+            </section>
+            <section className="st-card st-accent">
+              <div>
+                <div className="body-strong">Акцентный цвет</div>
+                <p className="caption st-accent-hint">Кнопка «Играть», подсветка, огни на островке. Меняется сразу.</p>
+              </div>
+              <div className="st-swatches" role="radiogroup" aria-label="Акцентный цвет">
+                {ACCENTS.map((a) => {
+                  const on = (settings.accent || 'luma') === a.id;
+                  return (
+                    <button key={a.id} type="button" role="radio" aria-checked={on} className={'st-swatch' + (on ? ' is-on' : '')}
+                      style={{ '--sw': a.night, '--sw-ink': a.ink }} onClick={() => update({ accent: a.id })}>
+                      <span className="st-swatch-chip" aria-hidden="true">{on ? <Icon name="check" size={16} /> : null}</span>
+                      <span className="caption">{a.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </section>
             <section className="st-card st-toggles st-look-notify">
               <Toggle label="Когда кто-то заходит на сервер" hint="Уведомление в лаунчере, а если он свёрнут — уведомление Windows."

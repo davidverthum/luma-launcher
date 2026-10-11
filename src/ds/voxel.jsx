@@ -1,6 +1,7 @@
 // VoxelArt — procedural isometric voxel islands, one per realm biome.
-// Pixel-true: drawn at low resolution with integer rects, then scaled up with image-rendering: pixelated.
-import { rng, hashStr, useTheme, resolveColor, useReducedMotion, useSize, cx, mixRGB, rgbStr, hexRGB } from './util.js';
+// Pixel-true: drawn at low resolution with integer rects, then scaled up by a whole number of device
+// pixels with image-rendering: pixelated — sharp at any window size, zoom or Windows scale.
+import { rng, hashStr, useTheme, useRootAttr, resolveColor, useReducedMotion, useSize, useDevicePixelRatio, cx, mixRGB, rgbStr, hexRGB } from './util.js';
 import * as React from 'react';
 const { useRef, useEffect, useMemo, useState, useLayoutEffect } = React;
 
@@ -247,17 +248,22 @@ function bounds(list) {
 function shade(c, k) { return [c[0] * k, c[1] * k, c[2] * k]; }
 function hash3(x, y, z) { let h = (x * 374761393 + y * 668265263 + z * 2147483647) | 0; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 
-function fit(bb, w, h, pixel, fill) {
-  const cands = pixel === 'auto' ? [4, 3, 2] : [pixel];
+/** px: device pixels per art pixel; u: art pixels per voxel. The finest pixel wins unless a coarser
+ * one fills noticeably closer to `fill`; a voxel stays within 16 art pixels so a redraw stays cheap.
+ * dot: device pixels per star or spark — a quarter of a voxel, as chunky as they always were. */
+function fit(bb, w, h, pixel, fill, dpr) {
+  const dw = w * dpr, dh = h * dpr;
+  const cands = pixel === 'auto' ? [2, 3, 4, 5, 6] : [Math.max(1, Math.round(pixel * dpr))];
   let best = null;
   for (const px of cands) {
-    const W = Math.max(8, Math.ceil(w / px)), H = Math.max(8, Math.ceil(h / px));
+    const W = Math.max(8, Math.ceil(dw / px)), H = Math.max(8, Math.ceil(dh / px));
     let u = Math.floor(Math.min((W * fill) / (bb.maxX - bb.minX), (H * fill) / (bb.maxY - bb.minY)));
     u = Math.max(2, u - (u % 2));
     const got = Math.max(((bb.maxX - bb.minX) * u) / W, ((bb.maxY - bb.minY) * u) / H);
-    const score = Math.abs(fill - got) + (u < 4 ? 0.5 : 0) + (u > 10 ? 0.2 : 0);
-    if (!best || score < best.score - 0.04) best = { px, W, H, u, score };
+    const score = Math.abs(fill - got) / fill + (u > 16 ? 1 : 0) + (px - 2) * 0.03;
+    if (!best || score < best.score) best = { px, W, H, u, score };
   }
+  best.dot = Math.max(1, Math.round((best.u * best.px) / 4));
   return best;
 }
 
@@ -265,6 +271,7 @@ function paint(world, ctx, gctx, W, H, P, u, fx, fy, night) {
   const { list, has } = world;
   const bb = world.bb;
   const h = u >> 1;
+  const fringe = Math.max(1, Math.round(u / 5));
   const ox = Math.round(W * fx - ((bb.minX + bb.maxX) / 2) * u);
   const oy = Math.round(H * fy - ((bb.minY + bb.maxY) / 2) * u);
   ctx.clearRect(0, 0, W, H);
@@ -289,8 +296,8 @@ function paint(world, ctx, gctx, W, H, P, u, fx, fy, night) {
         const w = 2 * (kk + 1);
         fr(top, sx - w, sy - h + r, 2 * w, 1, g);
       }
-      // texture specks
-      const n = u >= 6 ? 3 : 1;
+      // texture specks — more of them on bigger faces, so a sharp island isn't flat
+      const n = u < 6 ? 1 : Math.round((u * u) / 12);
       for (let i = 0; i < n; i++) {
         const q = hash3(v.x + i * 7, v.y - i * 3, v.z + 11);
         const r = 1 + Math.floor(q * (u - 2));
@@ -306,7 +313,7 @@ function paint(world, ctx, gctx, W, H, P, u, fx, fy, night) {
       for (let c = 0; c < u; c++) {
         const yTop = sy + h + 1 - Math.ceil((u - c) / 2);
         fr(sideL, sx - u + c, yTop, 1, u, g);
-        if (mat.fringe && showTop) fr(shade(mat.fringe, 0.84 * j), sx - u + c, yTop, 1, u >= 8 ? 2 : 1, false);
+        if (mat.fringe && showTop) fr(shade(mat.fringe, 0.84 * j), sx - u + c, yTop, 1, fringe, false);
       }
     }
     if (showR) {
@@ -314,7 +321,7 @@ function paint(world, ctx, gctx, W, H, P, u, fx, fy, night) {
         const cc = u - 1 - c;
         const yTop = sy + h + 1 - Math.ceil((u - cc) / 2);
         fr(sideR, sx + c, yTop, 1, u, g);
-        if (mat.fringe && showTop) fr(shade(mat.fringe, 0.68 * j), sx + c, yTop, 1, u >= 8 ? 2 : 1, false);
+        if (mat.fringe && showTop) fr(shade(mat.fringe, 0.68 * j), sx + c, yTop, 1, fringe, false);
       }
     }
   }
@@ -330,31 +337,40 @@ const BIOMES = ['meadow', 'techno', 'arena', 'nether', 'sky'];
 export function VoxelArt({ biome = 'meadow', light = 'var(--luma)', seed = 7, pixel = 'auto', fill = 0.8, focusX = 0.5, focusY = 0.52, animate = true, backdrop = true, particles = 36, className, style, children }) {
   const wrap = useRef(null), base = useRef(null), glowA = useRef(null), glowB = useRef(null), back = useRef(null), front = useRef(null);
   const theme = useTheme();
+  const accent = useRootAttr('data-accent');
   const reduced = useReducedMotion();
   const size = useSize(wrap);
+  const dpr = useDevicePixelRatio();
   const [lightRGB, setLightRGB] = useState([212, 255, 61]);
   const layout = useRef(null);
-  useLayoutEffect(() => { if (wrap.current) setLightRGB(resolveColor(light, wrap.current)); }, [light, theme]);
+  useLayoutEffect(() => { if (wrap.current) setLightRGB(resolveColor(light, wrap.current)); }, [light, theme, accent]);
   const world = useMemo(() => makeWorld(BIOMES.includes(biome) ? biome : 'meadow', hashStr(biome + ':' + seed)), [biome, seed]);
   const night = theme !== 'day';
 
-  const [px, setPx] = useState(3);
+  // CSS px of one star/spark pixel: the glow blur and the bob step are measured in it.
+  const [dot, setDot] = useState(3);
   useEffect(() => {
     if (!size.w || !base.current) return;
-    const f = fit(world.bb, size.w, size.h, pixel, fill);
+    const f = fit(world.bb, size.w, size.h, pixel, fill, dpr);
     const { W, H, u } = f;
-    for (const c of [base.current, glowA.current, glowB.current, back.current, front.current]) {
+    for (const c of [base.current, glowA.current, glowB.current]) {
       c.width = W; c.height = H;
-      c.style.width = W * f.px + 'px'; c.style.height = H * f.px + 'px';
+      c.style.width = (W * f.px) / dpr + 'px'; c.style.height = (H * f.px) / dpr + 'px';
     }
-    setPx(f.px);
+    // Stars and sparks live on their own coarser grid.
+    const FW = Math.ceil((size.w * dpr) / f.dot), FH = Math.ceil((size.h * dpr) / f.dot);
+    for (const c of [back.current, front.current]) {
+      c.width = FW; c.height = FH;
+      c.style.width = (FW * f.dot) / dpr + 'px'; c.style.height = (FH * f.dot) / dpr + 'px';
+    }
+    setDot(f.dot / dpr);
     const ctx = base.current.getContext('2d'), g = glowA.current.getContext('2d');
     const P = palette(theme, lightRGB);
-    layout.current = paint(world, ctx, g, W, H, P, u, focusX, focusY, night);
+    layout.current = { ...paint(world, ctx, g, W, H, P, u, focusX, focusY, night), toDot: f.px / f.dot };
     const g2 = glowB.current.getContext('2d');
     g2.clearRect(0, 0, W, H);
     g2.drawImage(glowA.current, 0, 0);
-  }, [world, size.w, size.h, theme, lightRGB, pixel, fill, focusX, focusY]);
+  }, [world, size.w, size.h, dpr, theme, lightRGB, pixel, fill, focusX, focusY]);
 
   // stars (behind) + particles (front)
   useEffect(() => {
@@ -364,7 +380,8 @@ export function VoxelArt({ biome = 'meadow', light = 'var(--luma)', seed = 7, pi
     const r = rng(hashStr('fx' + seed + biome));
     const stars = night ? Array.from({ length: Math.round((W * H) / 260) }, () => ({ x: Math.floor(r() * W), y: Math.floor(r() * H * 0.75), a: 0.25 + r() * 0.6, p: r() * 6.28, s: r() < 0.12 ? 2 : 1 })) : [];
     const lay = layout.current;
-    const box = lay ? lay.box : { x: 0, y: 0, w: W, h: H };
+    const k = lay ? lay.toDot : 1;
+    const box = lay ? { x: lay.box.x * k, y: lay.box.y * k, w: lay.box.w * k, h: lay.box.h * k } : { x: 0, y: 0, w: W, h: H };
     const rising = biome !== 'sky' && biome !== 'arena';
     const spawn = (init) => ({
       x: box.x + r() * box.w,
@@ -411,11 +428,11 @@ export function VoxelArt({ biome = 'meadow', light = 'var(--luma)', seed = 7, pi
     io.observe(wrap.current);
     if (animate && !reduced) raf = requestAnimationFrame(step);
     return () => { cancelAnimationFrame(raf); io.disconnect(); };
-  }, [size.w, size.h, theme, lightRGB, animate, reduced, biome, seed, particles, world, pixel, fill, focusX, focusY, px]);
+  }, [size.w, size.h, dpr, theme, lightRGB, animate, reduced, biome, seed, particles, world, pixel, fill, focusX, focusY, dot]);
 
   return (
     <div ref={wrap} className={cx('lm-voxel', !animate || reduced ? 'is-still' : null, className)} data-biome={biome}
-      style={{ '--vx-light': rgbStr(lightRGB), '--vx-px': px + 'px', '--vx-fx': focusX * 100 + '%', '--vx-fy': focusY * 100 + '%', ...style }}>
+      style={{ '--vx-light': rgbStr(lightRGB), '--vx-px': dot + 'px', '--vx-fx': focusX * 100 + '%', '--vx-fy': focusY * 100 + '%', ...style }}>
       {backdrop ? <div className="lm-voxel-sky" aria-hidden="true" /> : null}
       <canvas ref={back} className="lm-voxel-back" aria-hidden="true" />
       <div className="lm-voxel-island" aria-hidden="true">

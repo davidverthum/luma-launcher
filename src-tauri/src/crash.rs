@@ -83,6 +83,13 @@ fn mod_names(file: &str) -> Vec<String> {
     out
 }
 
+/// A failed name lookup reads better as advice than as a Java exception.
+fn dns_hint(text: &str) -> Option<String> {
+    let host = text.split("UnknownHostException: ").nth(1)?.split_whitespace().next()?;
+    let host = host.trim_end_matches(['.', ',', ')', ':']);
+    Some(format!("Игра не нашла адрес {host}: интернет работает только через прокси VPN, а игра ходит напрямую. Выключи в VPN режим TUN (или сам VPN) и запусти ещё раз."))
+}
+
 /// None for a clean exit (code 0, no new crash report).
 pub fn analyze(instance: &Path, since: SystemTime, code: Option<i32>, local_mods: &[String]) -> Option<Crash> {
     let (report, text, summary) = match new_report(instance, since) {
@@ -99,6 +106,7 @@ pub fn analyze(instance: &Path, since: SystemTime, code: Option<i32>, local_mods
             (None, tail, summary)
         }
     };
+    let summary = dns_hint(&text).unwrap_or(summary);
     let errors = error_part(&text);
     let suspects = local_mods.iter().filter(|f| mod_names(f).iter().any(|n| errors.contains(n.as_str()))).cloned().collect();
     Some(Crash { code, report, summary, details: text, suspects })
@@ -113,6 +121,13 @@ mod tests {
         assert_eq!(mod_names("sodium-extra-fabric-0.5.4+mc1.21.jar"), vec!["sodium-extra", "sodium_extra", "sodiumextra"]);
         assert_eq!(mod_names("Xaeros_Minimap_24.1.1_Fabric_1.21.jar.disabled"), vec!["xaeros_minimap", "xaerosminimap"]);
         assert!(mod_names("ok-1.0.jar").is_empty());
+    }
+
+    #[test]
+    fn unknown_host_becomes_advice() {
+        let log = "[authlib-injector] [ERROR] Failed to fetch metadata: java.net.UnknownHostException: ely.by\n\tat java.base/java.net.InetAddress";
+        assert!(dns_hint(log).unwrap().starts_with("Игра не нашла адрес ely.by:"));
+        assert_eq!(dns_hint("java.lang.NullPointerException: boom"), None);
     }
 
     #[test]
