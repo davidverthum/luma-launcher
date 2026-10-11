@@ -5,7 +5,7 @@ import { inTauri, modpack, onProgress, playDirect, screenshotSrc } from '../nati
 import { useScreenshots, shotCount, dayLabel, timeLabel } from '../shots.js';
 import { PlayMenu } from './PlayMenu.jsx';
 
-const HIGHLIGHTS = ['Waystones', "Traveler's Backpack", "Farmer's Delight Refabricated", "Xaero's Minimap", "Xaero's World Map", 'Zoomify', 'EMI', 'Sodium', 'Iris Shaders', 'Jade'];
+const HIGHLIGHTS = ['Waystones', "Traveler's Backpack", "Farmer's Delight Refabricated", "Xaero's Minimap", "Xaero's World Map", 'Simple Voice Chat', 'Zoomify', 'EMI', 'Sodium', 'Iris Shaders', 'Jade'];
 
 /** Keeps the voxel art (drawn by App behind the hero) ending just under the hero text and the
  * island just above it, so a tall window — a portrait monitor — doesn't strand the island at the

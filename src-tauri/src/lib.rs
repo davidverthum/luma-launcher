@@ -314,6 +314,7 @@ async fn play_direct(app: AppHandle, ram_gb: u32, session: elyby::Session, accen
     let ram_gb = if ram_gb == 0 { auto_ram_gb() } else { ram_gb };
     let instance = game::instance_dir(&app)?;
     game::sync_mods(&app, game::modpack(), &instance).await?;
+    mods::ensure_default_keys(&instance)?;
     launch::play(&app, ram_gb, &session, &instance, accent.as_deref()).await
 }
 

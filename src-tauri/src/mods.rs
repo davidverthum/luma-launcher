@@ -262,6 +262,30 @@ pub async fn apply_preset(client: &reqwest::Client, pack: &Modpack, instance: &P
     Ok(())
 }
 
+// ── default keys ─────────────────────────────────────────────────────────
+
+/// Pack mods that ship on the same key. Simple Voice Chat's mute and Xaero's World Map are both M.
+const DEFAULT_KEYS: [(&str, &str); 1] = [("key_key.mute_microphone", "key.keyboard.j")];
+/// Minecraft 1.21.1's data version; a fresh options.txt needs it or the game "upgrades" it as ancient.
+const OPTIONS_VERSION: &str = "3955";
+
+/// Sets [`DEFAULT_KEYS`] only where the player has no binding yet, so their own choice always wins.
+pub fn ensure_default_keys(instance: &Path) -> Result<(), String> {
+    let path = instance.join("options.txt");
+    let mut options = read_options(&path);
+    let before = options.len();
+    if options.is_empty() {
+        options.insert("version".into(), OPTIONS_VERSION.into());
+    }
+    for (k, v) in DEFAULT_KEYS {
+        options.entry(k.into()).or_insert_with(|| v.into());
+    }
+    if options.len() != before {
+        write_options(&path, &options)?;
+    }
+    Ok(())
+}
+
 // ── tiny key=value file helpers (java .properties and options.txt share the shape) ──────
 
 fn read_properties(path: &Path) -> BTreeMap<String, String> {
@@ -297,4 +321,45 @@ fn parse_kv(text: &str, sep: char) -> BTreeMap<String, String> {
 fn write_kv(path: &Path, map: &BTreeMap<String, String>, sep: char) -> Result<(), String> {
     let body = map.iter().map(|(k, v)| format!("{k}{sep}{v}\n")).collect::<String>();
     game::write_atomic(path, body.as_bytes())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn instance(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("luma-keys-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn default_keys_on_fresh_install() {
+        let dir = instance("fresh");
+        ensure_default_keys(&dir).unwrap();
+        let o = read_options(&dir.join("options.txt"));
+        assert_eq!(o.get("version").map(String::as_str), Some(OPTIONS_VERSION));
+        assert_eq!(o.get("key_key.mute_microphone").map(String::as_str), Some("key.keyboard.j"));
+    }
+
+    #[test]
+    fn default_keys_keep_the_players_choice() {
+        let dir = instance("own");
+        let path = dir.join("options.txt");
+        fs::write(&path, "version:3955\nkey_key.mute_microphone:key.keyboard.k\nlastServer:x1.qwertyx.host:28828\n").unwrap();
+        ensure_default_keys(&dir).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "version:3955\nkey_key.mute_microphone:key.keyboard.k\nlastServer:x1.qwertyx.host:28828\n");
+    }
+
+    #[test]
+    fn default_keys_added_to_existing_options() {
+        let dir = instance("add");
+        fs::write(dir.join("options.txt"), "version:3955\nrenderDistance:12\nlastServer:x1.qwertyx.host:28828\n").unwrap();
+        ensure_default_keys(&dir).unwrap();
+        let o = read_options(&dir.join("options.txt"));
+        assert_eq!(o.get("renderDistance").map(String::as_str), Some("12"));
+        assert_eq!(o.get("lastServer").map(String::as_str), Some("x1.qwertyx.host:28828"));
+        assert_eq!(o.get("key_key.mute_microphone").map(String::as_str), Some("key.keyboard.j"));
+    }
 }
