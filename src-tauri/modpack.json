@@ -303,6 +303,15 @@
    "size": 872937
   },
   {
+   "slug": "simple-voice-chat",
+   "name": "Simple Voice Chat",
+   "version": "fabric-1.21.1-2.6.22",
+   "file": "voicechat-fabric-1.21.1-2.6.22.jar",
+   "url": "https://cdn.modrinth.com/data/9eGKb6K1/versions/VS5X7jZd/voicechat-fabric-1.21.1-2.6.22.jar",
+   "sha512": "c44e69400ac7349ad6d4699263bde4d87359e03233c31a872eb02542658cfc73a185b46e4361c54cb1ac029a2991bd8eb4d4ea59b1c3e3b43f234087520b325a",
+   "size": 5369475
+  },
+  {
    "slug": "luma-menu",
    "name": "Luma Menu",
    "version": "1.0.1",
