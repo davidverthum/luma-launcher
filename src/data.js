@@ -12,10 +12,9 @@ export const HERE = { techno: ['Mira', 'Toxa', 'Yuki'], arena: ['Lex_', 'Gleb'],
 
 // Server news, written by hand for now.
 export const NEWS = [
+  { id: 'n4', realm: 'dawn', tag: 'Обновление', date: '11 окт', title: 'Новый мир и чистка модов', excerpt: 'Мир пересоздан на Tectonic и Terralith: горы до облаков и около сотни биомов, плюс крепости и монументы от YUNG\'а. Убрали кошкодевочек, могилы, Carry On и Comforts — вещи погибшего снова можно забрать. Зум — на клавишу C.' },
   { id: 'n1', realm: 'dawn', tag: 'Обновление', date: '9 окт', title: 'Luma открыт: Fabric 1.21.1 и 24 мода', excerpt: 'Путевые камни, рюкзаки, кухня Farmer\'s Delight, могилы, данжи и шахты YUNG\'а, карта Xaero — и своя кошкодевочка у каждого.' },
-  { id: 'n2', realm: 'sky', tag: 'Гайд', date: '9 окт', title: 'Как зайти на сервер', excerpt: 'Нажми «Играть»: Luma поставит моды и откроет Minecraft Launcher с профилем «Luma». Там — «Играть», в игре — «Сетевая игра» → Luma. Нужна лицензия Minecraft Java.' },
-  { id: 'n3', realm: 'techno', tag: 'Ивент', date: '9 окт', title: 'Кошкодевочки: Чэнь, Орин и Мике', excerpt: 'При первом входе рядом с тобой появится своя горничная. ПКМ по ней — меню задач и инвентаря; она ходит за тобой и помогает в бою и на ферме.' },
-];
+  { id: 'n2', realm: 'sky', tag: 'Гайд', date: '9 окт', title: 'Как зайти на сервер', excerpt: 'Нажми «Играть»: Luma поставит моды и откроет Minecraft Launcher с профилем «Luma». Там — «Играть», в игре — «Сетевая игра» → Luma. Нужна лицензия Minecraft Java.' },];
 
 export const RANK_OFFERS = [
   { rank: 'spark', price: 149, perks: ['Цветной ник в чате', '2 дома на Рассвете', '+10% люменов за игру'] },
