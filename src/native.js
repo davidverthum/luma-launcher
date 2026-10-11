@@ -1,5 +1,5 @@
 // Bridge to the Rust core. In a plain browser (vite dev without Tauri) everything falls back to safe stand-ins.
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { relaunch } from '@tauri-apps/plugin-process';
@@ -59,6 +59,9 @@ export const modpack = {
   mods: pack.mods.map((m) => m.name),
   totalMb: Math.round(pack.mods.reduce((a, m) => a + m.size, 0) / 1e5) / 10,
 };
+
+/** The pack's mods with their Modrinth slugs (for icons and links). */
+export const packMods = pack.mods.map((m) => ({ slug: m.slug, name: m.name, version: m.version }));
 
 /** Live server status. The app pings the server itself; the browser preview asks a public status API. */
 export async function serverStatus() {
@@ -148,14 +151,53 @@ export function elyTextures(name) {
   return invoke('ely_textures', { name });
 }
 
+const SKIN_TTL = 10 * 60 * 1000;
+const skinCache = new Map(); // lower-case nick → { at, promise }
+
+/** Any player's Ely.by skin as a data URI, or null (no skin, offline, browser preview).
+ * Cached for 10 minutes so a list re-render doesn't refetch; a changed skin shows up after that. */
+export function skinFor(name) {
+  if (!inTauri || !name) return Promise.resolve(null);
+  const key = String(name).toLowerCase();
+  const hit = skinCache.get(key);
+  if (hit && Date.now() - hit.at < SKIN_TTL) return hit.promise;
+  const promise = invoke('ely_skin', { name }).catch(() => null);
+  skinCache.set(key, { at: Date.now(), promise });
+  return promise;
+}
+
 /** The curated shader packs ({ slug, name, tier, ... }) — same list for everyone. */
 export function listShaders() {
   return inTauri ? invoke('list_shaders') : Promise.resolve([]);
 }
 
-/** Jars in the instance's mods/ folder that aren't part of the pinned pack. */
+/** The player's own mods in mods/ (not part of the pinned pack): [{ file, enabled }]. */
 export function listLocalMods() {
   return inTauri ? invoke('list_local_mods') : Promise.resolve([]);
+}
+
+/** Switches a player's mod on or off without deleting it. */
+export function setLocalModEnabled(filename, enabled) {
+  return inTauri ? invoke('set_local_mod_enabled', { filename, enabled }) : Promise.reject(new Error('Только в приложении.'));
+}
+
+let cardsPromise = null;
+/** Modrinth titles, descriptions and icons: { pack: { slug: card }, local: { file: card } }.
+ * Cached for the session; `fresh` refetches (after adding a mod). */
+export function modCards(fresh) {
+  if (!inTauri) return Promise.resolve({ pack: {}, local: {} });
+  if (!cardsPromise || fresh) cardsPromise = invoke('mod_cards').catch(() => { cardsPromise = null; return { pack: {}, local: {} }; });
+  return cardsPromise;
+}
+
+export const openCrashDir = () => (inTauri ? invoke('open_crash_dir') : Promise.resolve(null));
+
+/** `cb({ code, report, summary, details, suspects })` when Minecraft quits badly. Returns the unsubscribe. */
+export const onGameCrash = (cb) => (inTauri ? listen('luma://game-crash', (e) => cb(e.payload)) : Promise.resolve(() => {}));
+
+/** A system notification — for when the launcher window isn't in front. */
+export function notifySystem(title, body) {
+  return inTauri ? invoke('notify_system', { title, body }).catch(() => {}) : Promise.resolve();
 }
 
 /** Copies a jar (a real filesystem path, e.g. from a window drag-drop event) into mods/. */
@@ -177,6 +219,34 @@ export function applyPerfPreset(preset) {
   return inTauri ? invoke('apply_perf_preset', { preset }) : Promise.reject(new Error('Только в приложении.'));
 }
 
+/** Screenshots the game saved (F2), newest first: [{ file, path, size, taken_ms }]. */
+export function listScreenshots() {
+  return inTauri ? invoke('list_screenshots') : Promise.resolve([]);
+}
+
+/** An <img> src for a screenshot's `path` — the core only lets the screenshots folder through. */
+export const screenshotSrc = (path) => convertFileSrc(path);
+
+export const openScreenshotsDir = () => (inTauri ? invoke('open_screenshots_dir') : Promise.resolve(null));
+
+/** The rest take the bare `file` name from `listScreenshots`. */
+export const openScreenshot = (file) => invoke('open_screenshot', { file });
+export const revealScreenshot = (file) => invoke('reveal_screenshot', { file });
+export const copyScreenshot = (file) => invoke('copy_screenshot', { file });
+export const deleteScreenshot = (file) => invoke('delete_screenshot', { file });
+
+/** Whether `name` (an Ely.by nickname) is in modpack.json → admins. Only hides the tab — the
+ * RCON password is what actually lets commands through. */
+export const isAdmin = (name) => !!name && (pack.admins || []).some((a) => a.toLowerCase() === String(name).toLowerCase());
+
+/** { configured, has_password } — RCON port set in modpack.json, password saved on this computer. */
+export const adminStatus = () => (inTauri ? invoke('admin_status') : Promise.resolve({ configured: false, has_password: false }));
+/** Checks the password against the server (runs `list`), then keeps it in the OS credential store. */
+export const adminLogin = (password) => invoke('admin_login', { password });
+/** One console command over RCON; resolves with the server's reply. */
+export const adminExec = (command) => invoke('admin_exec', { command });
+export const adminLogout = () => invoke('admin_logout');
+
 /** Update channels: two lines of the launcher, each with its own releases. */
 export const CHANNELS = [{ id: 'yug', label: 'Юг' }, { id: 'sever', label: 'Север' }];
 export const channelLabel = (id) => (CHANNELS.find((c) => c.id === id) || CHANNELS[0]).label;
@@ -191,9 +261,16 @@ export function checkUpdate(channel) {
   return invoke('check_update', { channel: channel || null });
 }
 
-/** Downloads + installs an update found by `checkUpdate`, then restarts into it. */
-export async function installUpdate(update) {
-  await invoke('install_update', { channel: update.channel });
+/** Downloads + installs an update found by `checkUpdate`, then restarts into it.
+ * `onProgress({ stage: 'download' | 'install', done, total })` feeds the update screen. On Windows
+ * the installer runs silently and starts Luma again itself, so this may never resolve. */
+export async function installUpdate(update, onProgress) {
+  const stop = onProgress ? await listen('luma://update', (e) => onProgress(e.payload)) : () => {};
+  try {
+    await invoke('install_update', { channel: update.channel });
+  } finally {
+    stop();
+  }
   await relaunch();
 }
 

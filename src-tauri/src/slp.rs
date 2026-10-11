@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 use std::io::{Read, Write};
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::{SocketAddr, TcpStream};
 use std::time::{Duration, Instant};
 
 #[derive(Serialize, Clone, Debug, Default)]
@@ -123,20 +123,25 @@ pub fn parse_status(json: &str, latency_ms: u64) -> Result<Status, String> {
     })
 }
 
-fn split_address(address: &str) -> (String, u16) {
+pub fn split_address(address: &str) -> (String, u16) {
     match address.rsplit_once(':') {
         Some((h, p)) if !h.is_empty() => (h.to_string(), p.parse().unwrap_or(25565)),
         _ => (address.to_string(), 25565),
     }
 }
 
+#[cfg(test)]
 pub fn query(address: &str, timeout: Duration) -> Result<Status, String> {
     let (host, port) = split_address(address);
-    let addr = (host.as_str(), port)
-        .to_socket_addrs()
+    let addr = std::net::ToSocketAddrs::to_socket_addrs(&(host.as_str(), port))
         .map_err(|e| format!("DNS: {e}"))?
         .next()
         .ok_or("DNS: адрес не найден")?;
+    query_at(addr, &host, port, timeout)
+}
+
+/// The same ping to an already resolved `addr`; `host`/`port` still go into the handshake.
+pub fn query_at(addr: SocketAddr, host: &str, port: u16, timeout: Duration) -> Result<Status, String> {
     let started = Instant::now();
     let mut stream = TcpStream::connect_timeout(&addr, timeout).map_err(|e| e.to_string())?;
     let connect_ms = started.elapsed().as_millis() as u64;

@@ -1,17 +1,23 @@
 //! Luma launcher core: system info, Java detection, settings, the server's live status,
 //! and getting players into the server (modpack sync + profile in the official launcher).
 
+mod admin;
+mod crash;
 mod elyby;
 mod game;
 mod launch;
 mod mods;
 mod nbt;
+mod net;
+mod rcon;
+mod shots;
 mod slp;
 mod updates;
 
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, process::Command, time::Duration};
 use tauri::{AppHandle, Manager};
+use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
 
 #[derive(Serialize)]
@@ -146,11 +152,15 @@ fn modpack_info() -> game::PackInfo {
 #[tauri::command]
 async fn server_status() -> slp::Status {
     let address = game::modpack().server.address.clone();
-    tauri::async_runtime::spawn_blocking(move || slp::query(&address, Duration::from_secs(5)))
-        .await
-        .map_err(|e| e.to_string())
-        .and_then(|r| r)
-        .unwrap_or_else(|e| slp::Status { error: Some(e), ..Default::default() })
+    let (host, port) = slp::split_address(&address);
+    let status = match net::resolve(&address).await {
+        Ok(addr) => tauri::async_runtime::spawn_blocking(move || slp::query_at(addr, &host, port, Duration::from_secs(5)))
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|r| r),
+        Err(e) => Err(e),
+    };
+    status.unwrap_or_else(|e| slp::Status { error: Some(e), ..Default::default() })
 }
 
 #[derive(Serialize)]
@@ -296,6 +306,13 @@ async fn ely_textures(name: String) -> Result<elyby::Textures, String> {
     Ok(elyby::textures(&client, &name).await)
 }
 
+/// Any player's Ely.by skin as a data URI (None: no skin set) — the heads in player lists.
+#[tauri::command]
+async fn ely_skin(name: String) -> Result<Option<String>, String> {
+    let client = game::http()?;
+    Ok(elyby::skin(&client, &name).await)
+}
+
 /// Syncs mods, then launches Minecraft directly (no official launcher) using an Ely.by
 /// session so non-premium accounts can join the server. Progress goes out as `luma://progress`.
 #[tauri::command]
@@ -312,8 +329,37 @@ fn list_shaders() -> Vec<game::ShaderFile> {
 }
 
 #[tauri::command]
-fn list_local_mods(app: AppHandle) -> Result<Vec<String>, String> {
+fn list_local_mods(app: AppHandle) -> Result<Vec<mods::LocalMod>, String> {
     mods::list_local(game::modpack(), &game::instance_dir(&app)?)
+}
+
+/// Switches a player's own mod on or off (`.jar` ↔ `.jar.disabled`) without deleting it.
+#[tauri::command]
+fn set_local_mod_enabled(app: AppHandle, filename: String, enabled: bool) -> Result<(), String> {
+    mods::set_local_enabled(game::modpack(), &game::instance_dir(&app)?, &filename, enabled)
+}
+
+/// Titles, descriptions and icons from Modrinth for the pack's mods and the player's own.
+#[tauri::command]
+async fn mod_cards(app: AppHandle) -> Result<mods::ModCards, String> {
+    let client = game::http()?;
+    mods::cards(&client, game::modpack(), &game::instance_dir(&app)?).await
+}
+
+#[tauri::command]
+fn open_crash_dir(app: AppHandle) -> Result<String, String> {
+    let dir = game::instance_dir(&app)?.join("crash-reports");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let shown = dir.display().to_string();
+    app.opener().open_path(shown.clone(), None::<&str>).map_err(|e| e.to_string())?;
+    Ok(shown)
+}
+
+/// A Windows / macOS / Linux notification, for when the launcher isn't in front.
+#[tauri::command]
+fn notify_system(app: AppHandle, title: String, body: String) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+    app.notification().builder().title(title).body(body).show().map_err(|e| e.to_string())
 }
 
 /// `path` is a real filesystem path — from the file-picker dialog or a window drag-drop event.
@@ -337,6 +383,80 @@ async fn set_shader(app: AppHandle, slug: Option<String>) -> Result<(), String> 
 async fn apply_perf_preset(app: AppHandle, preset: String) -> Result<(), String> {
     let client = game::http()?;
     mods::apply_preset(&client, game::modpack(), &game::instance_dir(&app)?, &preset).await
+}
+
+#[tauri::command]
+fn list_screenshots(app: AppHandle) -> Result<Vec<shots::Shot>, String> {
+    Ok(shots::list(&game::instance_dir(&app)?))
+}
+
+#[tauri::command]
+fn open_screenshots_dir(app: AppHandle) -> Result<String, String> {
+    let dir = shots::dir(&game::instance_dir(&app)?);
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let shown = dir.display().to_string();
+    app.opener().open_path(shown.clone(), None::<&str>).map_err(|e| e.to_string())?;
+    Ok(shown)
+}
+
+/// Opens the screenshot in the system's image viewer.
+#[tauri::command]
+fn open_screenshot(app: AppHandle, file: String) -> Result<(), String> {
+    let path = shots::resolve(&game::instance_dir(&app)?, &file)?;
+    app.opener().open_path(path.display().to_string(), None::<&str>).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn reveal_screenshot(app: AppHandle, file: String) -> Result<(), String> {
+    let path = shots::resolve(&game::instance_dir(&app)?, &file)?;
+    app.opener().reveal_item_in_dir(path).map_err(|e| e.to_string())
+}
+
+/// Puts the screenshot on the clipboard as an image — ready to paste into Discord or Telegram.
+/// Decoding a big PNG takes a moment, so it runs off the main thread.
+#[tauri::command]
+async fn copy_screenshot(app: AppHandle, file: String) -> Result<(), String> {
+    let path = shots::resolve(&game::instance_dir(&app)?, &file)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+        let image = tauri::image::Image::from_bytes(&bytes).map_err(|e| e.to_string())?;
+        app.clipboard().write_image(&image).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn delete_screenshot(app: AppHandle, file: String) -> Result<(), String> {
+    shots::delete(&game::instance_dir(&app)?, &file)
+}
+
+#[derive(Serialize)]
+struct AdminStatus {
+    configured: bool,
+    has_password: bool,
+}
+
+#[tauri::command]
+fn admin_status() -> AdminStatus {
+    AdminStatus { configured: admin::configured(), has_password: admin::has_password() }
+}
+
+/// Checks the RCON password against the server, then keeps it in the OS credential store.
+#[tauri::command]
+async fn admin_login(password: String) -> Result<String, String> {
+    admin::login(password).await
+}
+
+/// Runs one console command on the server over RCON and returns its reply.
+#[tauri::command]
+async fn admin_exec(command: String) -> Result<String, String> {
+    admin::exec(command).await
+}
+
+#[tauri::command]
+fn admin_logout() -> Result<(), String> {
+    admin::logout()
 }
 
 /// "yug" | "sever" — the update channel this build was released on.
@@ -365,6 +485,18 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_notification::init())
+        .setup(|app| {
+            // The album shows screenshots straight from disk via the asset protocol — only that folder.
+            // A failure here only leaves the album without previews; it must not stop the launcher.
+            if let Ok(instance) = game::instance_dir(app.handle()) {
+                let dir = shots::dir(&instance);
+                let _ = fs::create_dir_all(&dir);
+                let _ = app.asset_protocol_scope().allow_directory(&dir, false);
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             system_info,
             detect_java,
@@ -382,13 +514,28 @@ pub fn run() {
             ely_login,
             ely_refresh,
             ely_textures,
+            ely_skin,
             play_direct,
             list_shaders,
             list_local_mods,
             add_local_mod,
             remove_local_mod,
+            set_local_mod_enabled,
+            mod_cards,
+            open_crash_dir,
+            notify_system,
             set_shader,
             apply_perf_preset,
+            list_screenshots,
+            open_screenshots_dir,
+            open_screenshot,
+            reveal_screenshot,
+            copy_screenshot,
+            delete_screenshot,
+            admin_status,
+            admin_login,
+            admin_exec,
+            admin_logout,
             build_channel,
             check_update,
             install_update

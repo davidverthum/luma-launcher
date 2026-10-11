@@ -1,11 +1,41 @@
-import { useState } from 'react';
-import { PlayButton, IconButton, Tag, Led, Ping, HeadStack, Emblem, FriendRow, Icon, Button } from '../ds/index.js';
-import { inTauri, modpack, onProgress, playDirect, copyText } from '../native.js';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { PlayButton, IconButton, Tag, Led, Ping, HeadStack, Emblem, FriendRow, Icon, Sparkline } from '../ds/index.js';
+import { onlineHistory } from '../server.js';
+import { inTauri, modpack, onProgress, playDirect, screenshotSrc } from '../native.js';
+import { useScreenshots, shotCount, dayLabel, timeLabel } from '../shots.js';
 
 const HIGHLIGHTS = ['Touhou Little Maid: Orihime', 'Waystones', "Traveler's Backpack", "Farmer's Delight Refabricated", "Xaero's Minimap", "Xaero's World Map", 'Carry On', 'Comforts', 'EMI', 'Sodium', 'Iris Shaders', 'Jade'];
 const CATS = ['Чэнь', 'Орин', 'Мике'];
 
-export default function Home({ realm: r, settings, notify, setRoute, openFolder, server }) {
+/** Keeps the voxel art (drawn by App behind the hero) ending just under the hero text and the
+ * island just above it, so a tall window — a portrait monitor — doesn't strand the island at the
+ * top with empty space below. At the usual sizes it changes nothing (70vh art, island at 43%). */
+function useArtFit(kickerRef, onArtFit) {
+  useLayoutEffect(() => {
+    const kicker = kickerRef.current;
+    const app = kicker && kicker.closest('.app');
+    if (!app || !onArtFit) return;
+    const fit = () => {
+      const top = kicker.getBoundingClientRect().top - app.getBoundingClientRect().top;
+      const h = Math.max(Math.min(app.clientHeight * 0.7, 760), top + 120);
+      const fy = Math.max(0.43, (top - 300) / h);
+      // A narrow main column (portrait window): move the island left, clear of the side panel.
+      const main = kicker.closest('.home-main');
+      const art = app.querySelector('.app-art');
+      const fx = main && art && main.clientWidth < 800 ? Math.max(0.3, (main.clientWidth * 0.55) / art.clientWidth) : 0.57;
+      onArtFit((cur) => (cur && Math.abs(cur.h - h) < 2 && Math.abs(cur.fy - fy) < 0.005 && Math.abs(cur.fx - fx) < 0.005 ? cur : { h, fy, fx }));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(app);
+    return () => { ro.disconnect(); onArtFit(null); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
+
+export default function Home({ realm: r, settings, notify, setRoute, openFolder, server, onArtFit }) {
+  const kickerRef = useRef(null);
+  useArtFit(kickerRef, onArtFit);
   const [state, setState] = useState('ready');
   const [p, setP] = useState(0);
   const [stage, setStage] = useState('');
@@ -14,7 +44,9 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
   const known = server !== null && server !== undefined;
   const online = known && server.online;
   const here = (known && server.sample) || [];
-  const address = modpack.server.address;
+  const [shots] = useScreenshots();
+  const latest = shots && shots[0];
+  const day = onlineHistory(); // re-read on each status poll (the server prop changes)
 
   const STAGE_LABEL = { mods: 'Моды', version: 'Версия игры', client: 'Клиент', libraries: 'Библиотеки', assets: 'Ресурсы', launch: 'Запуск' };
 
@@ -49,18 +81,13 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
     }
   };
 
-  const copy = async () => {
-    const ok = await copyText(address);
-    notify({ icon: ok ? 'check' : 'close', title: ok ? 'Адрес скопирован' : 'Не скопировалось', body: address });
-  };
-
   const sub = state === 'ready' ? r.name + ' · Fabric ' + modpack.minecraft + ' · ' + (ram ? ram + ' ГБ' : 'память авто') : stage;
 
   return (
     <div className="home">
       <div className="home-main">
         <section className="hero">
-          <div className="overline hero-kicker"><Emblem realm={r.emblem} size={16} color={r.light} />{r.kind}</div>
+          <div className="overline hero-kicker" ref={kickerRef}><Emblem realm={r.emblem} size={16} color={r.light} />{r.kind}</div>
           <h1 className="display-xl hero-name">{r.name}</h1>
           <p className="body-lg hero-desc">{r.desc}</p>
           <div className="hero-tags">
@@ -91,12 +118,12 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
             <p className="body hcard-text">При первом входе рядом с тобой появится горничная — {CATS.join(', ').replace(/, ([^,]*)$/, ' или $1')}. Ходит за тобой, помогает в бою и на ферме.</p>
             <p className="caption hcard-note">ПКМ по ней — её меню: задачи и инвентарь.</p>
           </div>
-          <div className="hcard hcard--addr">
-            <div className="hcard-head"><span className="overline">Адрес сервера</span><span className={'lm-mark-dot ' + (online ? 'is-online' : 'is-offline')} /></div>
-            <button type="button" className="hcard-addr mono" onClick={copy} title="Скопировать">{address.split(':')[0]}<wbr />:{address.split(':')[1]}</button>
-            <p className="caption hcard-note">{known && server.motd ? server.motd : 'Minecraft ' + modpack.minecraft + ' · Fabric ' + modpack.loader.version}</p>
-            <Button size="sm" variant="glass" onClick={copy}>Скопировать</Button>
-          </div>
+          <button type="button" className={'hcard hcard--shots' + (latest ? ' has-shot' : '')} onClick={() => setRoute('shots')}>
+            {latest ? <img className="hcard-shot" src={screenshotSrc(latest.path)} alt="" decoding="async" draggable={false} /> : null}
+            <span className="hcard-head"><span className="overline">Скриншоты</span><Icon name="camera" size={16} /></span>
+            <span className="title">{latest ? dayLabel(latest.taken_ms) + ', ' + timeLabel(latest.taken_ms) : 'Пока пусто'}</span>
+            <span className="caption hcard-note">{latest ? shotCount(shots.length) + ' · открыть альбом' : 'Нажми F2 в игре — снимок появится здесь сам.'}</span>
+          </button>
         </section>
       </div>
       <aside className="side">
@@ -113,6 +140,12 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
             </div>
           )}
         </div>
+        {day.values.length >= 2 ? (
+          <div className="side-chart">
+            <div className="side-chart-head caption"><span>Онлайн за сутки</span><span>пик <b>{day.peak}</b></span></div>
+            <Sparkline data={day.values} width={236} height={40} label={'Онлайн за сутки, пик ' + day.peak} />
+          </div>
+        ) : null}
         <p className="caption side-foot">{known ? 'Проверено в ' + new Date(server.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) + ' · обновляется каждые 30 с' : ''}</p>
       </aside>
     </div>

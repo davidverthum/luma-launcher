@@ -4,7 +4,7 @@
 //! through the GitHub API. Either way the updater gets that release's latest.json.
 use crate::game;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Url};
+use tauri::{AppHandle, Emitter, Url};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 const REPO: &str = "davidverthum/luma-launcher";
@@ -54,13 +54,40 @@ async fn manifest_url(client: &reqwest::Client, channel: &str) -> Result<Url, St
         .json()
         .await
         .map_err(|e| e.to_string())?;
-    let url = releases
-        .into_iter()
-        .filter(|r| !r.draft && r.tag_name.starts_with("sever-v"))
-        .find_map(|r| r.assets.into_iter().find(|a| a.name == "latest.json"))
-        .map(|a| a.browser_download_url)
-        .ok_or("в ветке «Север» пока нет выпусков")?;
+    let url = newest_sever(releases).ok_or("в ветке «Север» пока нет выпусков")?;
     Url::parse(&url).map_err(|e| e.to_string())
+}
+
+/// `sever-v0.1.10` → (0, 1, 10).
+fn sever_version(tag: &str) -> Option<(u64, u64, u64)> {
+    let mut parts = tag.strip_prefix("sever-v")?.split('.').map(|p| p.parse::<u64>().ok());
+    Some((parts.next()??, parts.next()??, parts.next()??))
+}
+
+/// latest.json of the highest Север version — by number, not by the order the API lists them in.
+fn newest_sever(releases: Vec<Release>) -> Option<String> {
+    releases
+        .into_iter()
+        .filter(|r| !r.draft)
+        .filter_map(|r| Some((sever_version(&r.tag_name)?, r.assets.into_iter().find(|a| a.name == "latest.json")?)))
+        .max_by_key(|(v, _)| *v)
+        .map(|(_, a)| a.browser_download_url)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn release(tag: &str, draft: bool) -> Release {
+        Release { tag_name: tag.into(), draft, assets: vec![Asset { name: "latest.json".into(), browser_download_url: format!("https://x/{tag}") }] }
+    }
+
+    #[test]
+    fn picks_highest_sever_version() {
+        let list = vec![release("v0.1.9", false), release("sever-v0.1.9", false), release("sever-v0.1.10", false), release("sever-v0.2.0", true)];
+        assert_eq!(newest_sever(list).as_deref(), Some("https://x/sever-v0.1.10"));
+        assert_eq!(newest_sever(vec![release("v0.1.4", false)]), None);
+    }
 }
 
 /// `None` picks the build's own channel. Within one channel only a newer version counts; when
@@ -97,10 +124,37 @@ pub async fn check(app: &AppHandle, channel: Option<&str>) -> Result<Option<Upda
     }))
 }
 
-/// Checks again (the found update isn't kept between calls), then downloads and installs it.
-/// The caller restarts the app afterwards.
+#[derive(Serialize, Clone)]
+struct Progress {
+    /// "download" while bytes arrive, then "install".
+    stage: &'static str,
+    done: u64,
+    total: Option<u64>,
+}
+
+/// Checks again (the found update isn't kept between calls), then downloads and installs it,
+/// reporting `luma://update` events for the launcher's own update screen. On Windows the
+/// installer runs silently (installMode "quiet") and starts Luma again by itself; elsewhere the
+/// caller restarts the app.
 pub async fn install(app: &AppHandle, channel: Option<&str>) -> Result<(), String> {
     let (_, update) = find(app, channel).await?;
     let update = update.ok_or("уже стоит последняя версия этой ветки")?;
-    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())
+    let (on_chunk, on_done) = (app.clone(), app.clone());
+    let (mut done, mut reported) = (0u64, 0u64);
+    update
+        .download_and_install(
+            move |chunk, total| {
+                done += chunk as u64;
+                // Every 256 KB, not every chunk — a few dozen events for the whole download.
+                if done - reported >= 256 * 1024 || total == Some(done) {
+                    reported = done;
+                    let _ = on_chunk.emit("luma://update", Progress { stage: "download", done, total });
+                }
+            },
+            move || {
+                let _ = on_done.emit("luma://update", Progress { stage: "install", done: 0, total: None });
+            },
+        )
+        .await
+        .map_err(|e| e.to_string())
 }
