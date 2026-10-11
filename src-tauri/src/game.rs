@@ -403,7 +403,9 @@ mod tests {
         assert_eq!(files.len(), p.mods.len(), "duplicate jar names");
         for m in &p.mods {
             assert_eq!(m.sha512.len(), 128, "{}", m.slug);
-            assert!(m.url.starts_with("https://cdn.modrinth.com/"), "{}", m.slug);
+            // Modrinth, or our own mods from this repo's releases (Luma Menu).
+            let ours = m.url.starts_with("https://github.com/davidverthum/luma-launcher/releases/download/");
+            assert!(m.url.starts_with("https://cdn.modrinth.com/") || ours, "{}", m.slug);
             assert!(m.file.ends_with(".jar") && !m.file.contains('/'), "{}", m.slug);
         }
         assert!(p.mods.iter().any(|m| m.slug == "touhoulittlemaid-orihime"));

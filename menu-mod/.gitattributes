@@ -1,0 +1,5 @@
+# The jar is checked by sha512 (modpack.json): the same line endings everywhere keep rebuilds identical.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.jar binary
+*.png binary

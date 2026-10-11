@@ -61,7 +61,8 @@ export const modpack = {
 };
 
 /** The pack's mods with their Modrinth slugs (for icons and links). */
-export const packMods = pack.mods.map((m) => ({ slug: m.slug, name: m.name, version: m.version }));
+// `page`/`description`: for our own mods, which Modrinth doesn't know.
+export const packMods = pack.mods.map((m) => ({ slug: m.slug, name: m.name, version: m.version, page: m.page, description: m.description }));
 
 /** Live server status. The app pings the server itself; the browser preview asks a public status API. */
 export async function serverStatus() {
@@ -139,10 +140,11 @@ export function elyRefresh(accessToken, clientToken) {
   return invoke('ely_refresh', { accessToken, clientToken });
 }
 
-/** Syncs mods, then launches Minecraft directly with the given Ely.by session. */
-export function playDirect(ramGb, session) {
+/** Syncs mods, then launches Minecraft directly with the given Ely.by session. `accent` (an
+ * accent.js id) colors the game's own title screen; none — lime. */
+export function playDirect(ramGb, session, accent = null) {
   if (!inTauri) return Promise.reject(new Error('Это браузерная версия — скачай Luma для своей системы.'));
-  return invoke('play_direct', { ramGb, session });
+  return invoke('play_direct', { ramGb, session, accent });
 }
 
 const SKIN_TTL = 10 * 60 * 1000;

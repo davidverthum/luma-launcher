@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "luma-menu",
+  "version": "${version}",
+  "name": "Luma Menu",
+  "description": "Главное меню Luma: подключиться к серверу, настройки и моды — вместо одиночной и сетевой игры.",
+  "authors": ["Luma"],
+  "contact": {
+    "sources": "https://github.com/davidverthum/luma-launcher"
+  },
+  "icon": "assets/luma-menu/icon.png",
+  "environment": "client",
+  "mixins": ["luma-menu.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21"
+  }
+}

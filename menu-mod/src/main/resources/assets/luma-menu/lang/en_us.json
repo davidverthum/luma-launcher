@@ -1,0 +1,14 @@
+{
+  "luma-menu.title": "Luma",
+  "luma-menu.kicker": "SURVIVAL WITH MODS",
+  "luma-menu.desc": "A server for friends: waystones, backpacks, cooking, graves and dungeons — and every player gets their own catgirl.",
+  "luma-menu.connect": "Connect to the server",
+  "luma-menu.options": "Options",
+  "luma-menu.mods": "Mods",
+  "luma-menu.quit": "Quit",
+  "luma-menu.status.online": "%s · %s of %s online",
+  "luma-menu.status.checking": "%s · checking the server…",
+  "luma-menu.status.offline": "%s · the server isn't answering",
+  "luma-menu.status.incompatible": "%s · a different game version",
+  "luma-menu.player": "Playing as %s"
+}

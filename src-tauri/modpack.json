@@ -310,6 +310,17 @@
    "url": "https://cdn.modrinth.com/data/SaCpeal4/versions/LUPOTXbk/comforts-fabric-9.0.5%2B1.21.1.jar",
    "sha512": "617711d65c0ac1ddb8069ed46051c7da5fd7f4a19adbefc1c6d417621d32a4a4929dd60bd76f204045537a151d29f5e518aa7d18d604012ef1f9b62de707530d",
    "size": 914494
+  },
+  {
+   "slug": "luma-menu",
+   "name": "Luma Menu",
+   "version": "1.0.0",
+   "file": "luma-menu-1.0.0.jar",
+   "url": "https://github.com/davidverthum/luma-launcher/releases/download/menu-v1.0.0/luma-menu-1.0.0.jar",
+   "sha512": "244afcc142745e4bb6839ad0c99804174234f93e76ff069c3ce0889c3907f35cf96fcf64f22a188aa801ec6c513d764d395cd0725c6cc1062a268c644a75c23f",
+   "size": 446620,
+   "page": "https://github.com/davidverthum/luma-launcher/tree/main/menu-mod",
+   "description": "Своё главное меню игры: подключиться к серверу, настройки, моды"
   }
  ],
  "shaders": [
