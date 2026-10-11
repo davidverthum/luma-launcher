@@ -408,7 +408,7 @@ mod tests {
             assert!(m.url.starts_with("https://cdn.modrinth.com/") || ours, "{}", m.slug);
             assert!(m.file.ends_with(".jar") && !m.file.contains('/'), "{}", m.slug);
         }
-        assert!(p.mods.iter().any(|m| m.slug == "touhoulittlemaid-orihime"));
+        assert!(p.mods.iter().any(|m| m.slug == "zoomify"));
     }
 
     #[test]

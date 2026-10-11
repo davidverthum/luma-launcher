@@ -168,24 +168,6 @@
    "size": 232325
   },
   {
-   "slug": "touhoulittlemaid-orihime",
-   "name": "Touhou Little Maid: Orihime",
-   "version": "0.8.2-neo1.5.3+mc1.21.1",
-   "file": "touhoulittlemaid-fabric-0.8.2-neo1.5.3+mc1.21.1.jar",
-   "url": "https://cdn.modrinth.com/data/Tv58SCnQ/versions/xBOWZa8l/touhoulittlemaid-fabric-0.8.2-neo1.5.3%2Bmc1.21.1.jar",
-   "sha512": "7660b9e5380ed44f9b8f27789da6ea17fbdb95d70b1664e6fe585bd9ed97b5cc2def792df6ba80a806a0dab71bb84996555d913644ecfbcc2d14ec5f54fc60cc",
-   "size": 26744080
-  },
-  {
-   "slug": "forge-config-api-port",
-   "name": "Forge Config API Port",
-   "version": "v21.1.6-1.21.1-Fabric",
-   "file": "ForgeConfigAPIPort-v21.1.6-1.21.1-Fabric.jar",
-   "url": "https://cdn.modrinth.com/data/ohNO6lps/versions/N5qzq0XV/ForgeConfigAPIPort-v21.1.6-1.21.1-Fabric.jar",
-   "sha512": "cd9296e78ba969f7aed6e3692aa25eb61c102c79c55ca5f9592576bacaa26feab5d5d48fa30cf07ca852e0f1d42afc4d4558feff69a67b225183d2bc15898cf9",
-   "size": 633065
-  },
-  {
    "slug": "cloth-config",
    "name": "Cloth Config API",
    "version": "15.0.140+fabric",
@@ -294,31 +276,40 @@
    "size": 75984
   },
   {
-   "slug": "carry-on",
-   "name": "Carry On",
-   "version": "2.2.6",
-   "file": "carryon-fabric-1.21.1-2.2.6.13.jar",
-   "url": "https://cdn.modrinth.com/data/joEfVgkn/versions/iDV62vEU/carryon-fabric-1.21.1-2.2.6.13.jar",
-   "sha512": "5d415137d9f1dd7fffc35c37493a81d9256c59f665068c1eebc38e9fea57a694133087dd652b4b8d17a88dabdc46ba9f19df43e17e55e6be6eed11dd600dc6f3",
-   "size": 365419
+   "slug": "fabric-language-kotlin",
+   "name": "Fabric Language Kotlin",
+   "version": "1.14.2+kotlin.2.4.21",
+   "file": "fabric-language-kotlin-1.14.2+kotlin.2.4.21.jar",
+   "url": "https://cdn.modrinth.com/data/Ha28R6CL/versions/SKW1BTL3/fabric-language-kotlin-1.14.2%2Bkotlin.2.4.21.jar",
+   "sha512": "7fb475c4a7e7bdf8d0aca4b5798a58a354c51443d5b1fbde3e8cf34dfbf7191ef4238b5f07d08ec9490ec180b371624523326c3ad45d4ed2b2be541de9407e5d",
+   "size": 8142878
   },
   {
-   "slug": "comforts",
-   "name": "Comforts",
-   "version": "9.0.5+1.21.1",
-   "file": "comforts-fabric-9.0.5+1.21.1.jar",
-   "url": "https://cdn.modrinth.com/data/SaCpeal4/versions/LUPOTXbk/comforts-fabric-9.0.5%2B1.21.1.jar",
-   "sha512": "617711d65c0ac1ddb8069ed46051c7da5fd7f4a19adbefc1c6d417621d32a4a4929dd60bd76f204045537a151d29f5e518aa7d18d604012ef1f9b62de707530d",
-   "size": 914494
+   "slug": "yacl",
+   "name": "YetAnotherConfigLib (YACL)",
+   "version": "3.8.2+1.21.1-fabric",
+   "file": "yet_another_config_lib_v3-3.8.2+1.21.1-fabric.jar",
+   "url": "https://cdn.modrinth.com/data/1eAoo2KR/versions/o3cDn8Vp/yet_another_config_lib_v3-3.8.2%2B1.21.1-fabric.jar",
+   "sha512": "353169f85fa63e73ce9bdd0d4ddce54e3cbc4d71153a93c982f74c68fd93325986663f94fc2f2b10f4427e8b15a0485c608c5587b3840d933204b50ea4cb6d4c",
+   "size": 1131265
+  },
+  {
+   "slug": "zoomify",
+   "name": "Zoomify (Zoom)",
+   "version": "2.15.2+1.21.1",
+   "file": "zoomify-2.15.2+1.21.1.jar",
+   "url": "https://cdn.modrinth.com/data/w7ThoJFB/versions/6jrMC48Z/zoomify-2.15.2%2B1.21.1.jar",
+   "sha512": "ce8db36e77f089f091986b6e8bea1c33433bbcffc7a47fa18d04dea5ecd4910286943600a85b4773fdf4ed5405f52f3c0dc08fea8b1551d7725a26e1f6ef2879",
+   "size": 872937
   },
   {
    "slug": "luma-menu",
    "name": "Luma Menu",
-   "version": "1.0.0",
-   "file": "luma-menu-1.0.0.jar",
-   "url": "https://github.com/davidverthum/luma-launcher/releases/download/menu-v1.0.0/luma-menu-1.0.0.jar",
-   "sha512": "244afcc142745e4bb6839ad0c99804174234f93e76ff069c3ce0889c3907f35cf96fcf64f22a188aa801ec6c513d764d395cd0725c6cc1062a268c644a75c23f",
-   "size": 446620,
+   "version": "1.0.1",
+   "file": "luma-menu-1.0.1.jar",
+   "url": "https://github.com/davidverthum/luma-launcher/releases/download/menu-v1.0.1/luma-menu-1.0.1.jar",
+   "sha512": "91fb7b0c1b47acb01c703da25dd06c2be0b30bff1decbaa8141adb418edb4d6f04ad3d0e23901fa50a1dacfc07061bd0f94d6eceef4b2b0fd907d7ae4dde54c3",
+   "size": 446612,
    "page": "https://github.com/davidverthum/luma-launcher/tree/main/menu-mod",
    "description": "Своё главное меню игры: подключиться к серверу, настройки, моды"
   }

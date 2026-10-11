@@ -4,8 +4,7 @@ import { onlineHistory } from '../server.js';
 import { inTauri, modpack, onProgress, playDirect, screenshotSrc } from '../native.js';
 import { useScreenshots, shotCount, dayLabel, timeLabel } from '../shots.js';
 
-const HIGHLIGHTS = ['Touhou Little Maid: Orihime', 'Waystones', "Traveler's Backpack", "Farmer's Delight Refabricated", "Xaero's Minimap", "Xaero's World Map", 'Carry On', 'Comforts', 'EMI', 'Sodium', 'Iris Shaders', 'Jade'];
-const CATS = ['Чэнь', 'Орин', 'Мике'];
+const HIGHLIGHTS = ['Waystones', "Traveler's Backpack", "Farmer's Delight Refabricated", "Xaero's Minimap", "Xaero's World Map", 'Zoomify', 'EMI', 'Sodium', 'Iris Shaders', 'Jade'];
 
 /** Keeps the voxel art (drawn by App behind the hero) ending just under the hero text and the
  * island just above it, so a tall window — a portrait monitor — doesn't strand the island at the
@@ -112,11 +111,11 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
             <div className="hcard-chips">{HIGHLIGHTS.map((m) => <span key={m} className="hcard-chip">{m.replace(': Orihime', '').replace(' Refabricated', '')}</span>)}</div>
             <p className="caption hcard-note">Luma сама скачивает и обновляет моды — сверяет каждый файл с сервером.</p>
           </div>
-          <div className="hcard hcard--cat">
-            <div className="hcard-head"><span className="overline">У каждого своя</span><Icon name="sparkle" size={16} /></div>
-            <div className="title">Кошкодевочка</div>
-            <p className="body hcard-text">При первом входе рядом с тобой появится горничная — {CATS.join(', ').replace(/, ([^,]*)$/, ' или $1')}. Ходит за тобой, помогает в бою и на ферме.</p>
-            <p className="caption hcard-note">ПКМ по ней — её меню: задачи и инвентарь.</p>
+          <div className="hcard hcard--world">
+            <div className="hcard-head"><span className="overline">Мир</span><Icon name="globe" size={16} /></div>
+            <div className="title">Горы до облаков</div>
+            <p className="body hcard-text">Tectonic и Terralith: высокие хребты, глубокие долины и около сотни новых биомов. Мир генерирует сервер — качать ничего не нужно.</p>
+            <p className="caption hcard-note">Подземелья, шахты, крепости и монументы — от YUNG'а.</p>
           </div>
           <button type="button" className={'hcard hcard--shots' + (latest ? ' has-shot' : '')} onClick={() => setRoute('shots')}>
             {latest ? <img className="hcard-shot" src={screenshotSrc(latest.path)} alt="" decoding="async" draggable={false} /> : null}
@@ -135,7 +134,7 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
           {here.length ? here.map((name) => <FriendRow key={name} name={name} status="ingame" activity="играет на Luma" realmColor={r.light} compact action="none" />) : (
             <div className="side-empty">
               <Icon name={online ? 'sparkle' : 'clock'} size={24} />
-              <p className="body">{!known ? 'Спрашиваем сервер…' : online ? 'Сейчас никого. Зайди первым — кошкодевочка уже ждёт.' : 'Сервер не отвечает. Возможно, он выключен или закончилась оплата хостинга.'}</p>
+              <p className="body">{!known ? 'Спрашиваем сервер…' : online ? 'Сейчас никого. Зайди первым — мир ещё никто не исследовал.' : 'Сервер не отвечает. Возможно, он выключен или закончилась оплата хостинга.'}</p>
               {known && server.players > here.length ? <p className="caption">Сервер не показывает ники всех игроков.</p> : null}
             </div>
           )}

@@ -15,8 +15,8 @@ export const LUMA_REALM = {
   online: 0,
   ping: 0,
   status: 'online',
-  desc: 'Сервер для своих: путевые камни, рюкзаки, кухня, могилы и данжи — и у каждого игрока своя кошкодевочка.',
-  tags: [modpack.mods.length + ' модов', 'Fabric ' + modpack.loader.version, 'Кошкодевочки'],
+  desc: 'Сервер для своих: мир с горами до облаков, путевые камни, рюкзаки, кухня и данжи YUNG\'а.',
+  tags: [modpack.mods.length + ' модов', 'Fabric ' + modpack.loader.version, 'Tectonic + Terralith'],
 };
 
 // Online over the last day, from the launcher's own polls — kept in this computer's storage, so
