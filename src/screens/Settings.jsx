@@ -232,11 +232,11 @@ export default function Settings({ settings, update, notify, realm, openFolder, 
                 {packMods.map((m) => {
                   const c = cards.pack[m.slug];
                   return (
-                    <button key={m.slug} type="button" className="mod-card" onClick={() => openUrl(c ? c.url : 'https://modrinth.com/mod/' + m.slug)} title={c ? c.description : m.name}>
+                    <button key={m.slug} type="button" className="mod-card" onClick={() => openUrl(c ? c.url : m.page || 'https://modrinth.com/mod/' + m.slug)} title={c ? c.description : m.description || m.name}>
                       <ModIcon card={c} />
                       <span className="mod-text">
                         <span className="body-strong">{c ? c.title : m.name}</span>
-                        <span className="caption">{c ? c.description : m.version}</span>
+                        <span className="caption">{c ? c.description : m.description || m.version}</span>
                       </span>
                     </button>
                   );

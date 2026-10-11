@@ -71,7 +71,7 @@ export default function Home({ realm: r, settings, notify, setRoute, openFolder,
       const mc = settings.mc;
       const session = { accessToken: mc.accessToken, clientToken: mc.clientToken, selectedProfile: { id: mc.uuid, name: mc.name } };
       setState('launching');
-      await playDirect(ram, session);
+      await playDirect(ram, session, settings.accent);
       notify({ icon: 'play', title: 'Запускаем', body: 'Minecraft стартует отдельным окном — переключись в игру.', duration: 8000 });
     } catch (err) {
       notify({ tone: 'danger', icon: 'close', title: 'Не получилось запустить', body: String((err && err.message) || err), duration: 12000 });

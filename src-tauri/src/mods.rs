@@ -137,7 +137,9 @@ async fn projects(client: &reqwest::Client, ids: &[String]) -> Result<Vec<serde_
 /// stays a plain file name in the UI.
 pub async fn cards(client: &reqwest::Client, pack: &Modpack, instance: &Path) -> Result<ModCards, String> {
     let mut out = ModCards::default();
-    let slugs: Vec<String> = pack.mods.iter().map(|m| m.slug.clone()).collect();
+    // Only mods Modrinth hosts — our own (Luma Menu) isn't there, and a stranger's project could
+    // have the same slug.
+    let slugs: Vec<String> = pack.mods.iter().filter(|m| m.url.starts_with("https://cdn.modrinth.com/")).map(|m| m.slug.clone()).collect();
     for p in projects(client, &slugs).await? {
         if let Some((_, slug, c)) = card(&p) {
             out.pack.insert(slug, c);

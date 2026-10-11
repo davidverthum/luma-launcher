@@ -1,0 +1,14 @@
+{
+  "luma-menu.title": "Luma",
+  "luma-menu.kicker": "ВЫЖИВАНИЕ С МОДАМИ",
+  "luma-menu.desc": "Сервер для своих: путевые камни, рюкзаки, кухня, могилы и данжи — и у каждого игрока своя кошкодевочка.",
+  "luma-menu.connect": "Подключиться к серверу",
+  "luma-menu.options": "Настройки",
+  "luma-menu.mods": "Моды",
+  "luma-menu.quit": "Выйти",
+  "luma-menu.status.online": "%s · %s из %s онлайн",
+  "luma-menu.status.checking": "%s · проверяем сервер…",
+  "luma-menu.status.offline": "%s · сервер не отвечает",
+  "luma-menu.status.incompatible": "%s · другая версия игры",
+  "luma-menu.player": "Ты играешь как %s"
+}

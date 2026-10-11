@@ -396,7 +396,7 @@ fn classpath(libs: &[PathBuf], client_jar: &Path) -> String {
 /// runtime, so players never install anything — and starts the game, handing it an Ely.by
 /// session through authlib-injector instead of a Microsoft login. Never blocks on the game
 /// process — once it's spawned, this returns.
-pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Path) -> Result<(), String> {
+pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Path, accent: Option<&str>) -> Result<(), String> {
     let client = game::http()?;
     let pack: &Modpack = game::modpack();
 
@@ -441,6 +441,12 @@ pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Pa
     let mut jvm_args = vec![format!("-javaagent:{}=ely.by", injector.display())];
     jvm_args.extend(collect_args(&merged["arguments"]["jvm"], &map));
     jvm_args.push(format!("-Xmx{}G", ram_gb.clamp(2, 32)));
+    // For the game's own title screen (menu-mod): which server to join, in which accent.
+    jvm_args.push(format!("-Dluma.server={}", pack.server.address));
+    jvm_args.push(format!("-Dluma.server.name={}", pack.server.name));
+    if let Some(accent) = accent.filter(|a| !a.is_empty() && a.chars().all(|c| c.is_ascii_lowercase())) {
+        jvm_args.push(format!("-Dluma.accent={accent}"));
+    }
     let game_args = collect_args(&merged["arguments"]["game"], &map);
     let main_class = merged["mainClass"].as_str().ok_or("в версии нет mainClass")?;
 
