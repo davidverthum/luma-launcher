@@ -142,10 +142,15 @@ export function elyRefresh(accessToken, clientToken) {
 
 /** Syncs mods, then launches Minecraft directly with the given Ely.by session. `accent` (an
  * accent.js id) colors the game's own title screen; none — lime. */
-export function playDirect(ramGb, session, accent = null) {
+export function playDirect(ramGb, session, accent = null, optional = []) {
   if (!inTauri) return Promise.reject(new Error('Это браузерная версия — скачай Luma для своей системы.'));
-  return invoke('play_direct', { ramGb, session, accent });
+  return invoke('play_direct', { ramGb, session, accent, optional });
 }
+
+/** Mods the player can switch on in Settings (not part of everyone's download). */
+export const optionalMods = (pack.optional || []).map((m) => ({ slug: m.slug, name: m.name, mb: Math.round(m.size / 1e5) / 10 }));
+/** Slugs of the optional mods switched on in these settings. */
+export const enabledOptional = (settings) => (settings && settings.distantHorizons ? ['distanthorizons'] : []);
 
 const SKIN_TTL = 10 * 60 * 1000;
 const SKIN_RETRY = 15 * 1000;
@@ -193,6 +198,20 @@ export const openCrashDir = () => (inTauri ? invoke('open_crash_dir') : Promise.
 
 /** `cb({ code, report, summary, details, suspects })` when Minecraft quits badly. Returns the unsubscribe. */
 export const onGameCrash = (cb) => (inTauri ? listen('luma://game-crash', (e) => cb(e.payload)) : Promise.resolve(() => {}));
+
+/** Opens Ely.by's own skin upload page in a launcher window (Ely.by has no API for it). */
+export function openElySkins() {
+  return inTauri ? invoke('open_ely_skins') : (window.open('https://ely.by/skins/add', '_blank', 'noopener'), Promise.resolve());
+}
+/** `cb()` when the Ely.by window is closed — time to fetch the fresh skin. Returns the unsubscribe. */
+export const onElyClosed = (cb) => (inTauri ? listen('luma://ely-closed', () => cb()) : Promise.resolve(() => {}));
+
+/** «X теперь на сервере» from the core's own watcher: `cb({ names, players, max })`. Returns the unsubscribe. */
+export const onJoins = (cb) => (inTauri ? listen('luma://joins', (e) => cb(e.payload)) : Promise.resolve(() => {}));
+/** Tells the core's join watcher the settings toggle and the player's own nick. */
+export function setJoinAlerts(enabled, me) {
+  return inTauri ? invoke('set_join_alerts', { enabled, me: me || null }).catch(() => {}) : Promise.resolve();
+}
 
 /** A system notification — for when the launcher window isn't in front. */
 export function notifySystem(title, body) {

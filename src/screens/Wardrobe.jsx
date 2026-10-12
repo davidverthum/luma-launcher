@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SkinViewer, Tabs, Button, Tag, Icon, RankBadge, defaultCape } from '../ds/index.js';
-import { skinFor, openUrl } from '../native.js';
+import { skinFor, openElySkins, onElyClosed } from '../native.js';
 
 const CAPES = [
   { id: 'luma', name: 'Плащ Luma', icon: 'block', rarity: 'Сезонный', tone: 'var(--luma-ink)', hex: '#d4ff3d', owned: true },
@@ -11,6 +11,19 @@ const CAPES = [
   { id: 'crystal', name: 'Плащ «Аметист»', icon: 'gift', rarity: 'Легендарный', tone: 'var(--realm-sky)', hex: '#b39bff', price: 990, rank: 'zenith' },
   { id: 'night', name: 'Плащ «Полночь»', icon: 'clock', rarity: 'Обычный', tone: 'var(--ink-2)', hex: '#6e757c', price: 150 },
   { id: 'star', name: 'Плащ «Звездопад»', icon: 'sparkle', rarity: 'Ивентовый', tone: 'var(--luma-ink)', hex: '#e8edf1', locked: true },
+];
+
+// Emotecraft's built-in emotes (the jar ships these nine); the wheel opens on X in game.
+const EMOTES = [
+  { id: 'waving', name: 'Привет', icon: 'users' },
+  { id: 'clap', name: 'Аплодисменты', icon: 'sparkle' },
+  { id: 'point', name: 'Указать', icon: 'pin' },
+  { id: 'here', name: 'Сюда!', icon: 'chat' },
+  { id: 'palm', name: 'Фейспалм', icon: 'eye' },
+  { id: 'crying', name: 'Плач', icon: 'hourglass' },
+  { id: 'backflip', name: 'Сальто', icon: 'bolt' },
+  { id: 'kazotsky_kick', name: 'Казачок', icon: 'crown' },
+  { id: 'roblox_potion_dance', name: 'Танец с зельем', icon: 'gem' },
 ];
 
 /** A 64×32 cape texture in one light: dark cloth, a lit stepped hem and a small mark. */
@@ -51,7 +64,8 @@ function normalizeSkin(dataUri) {
 export default function Wardrobe({ settings, update, notify }) {
   const [sel, setSel] = useState(settings.cape || 'luma');
   const [pose, setPose] = useState('idle');
-  const [tab, setTab] = useState('capes');
+  const [tab, setTab] = useState('skins');
+  const [emote, setEmote] = useState('waving');
   const [elySkin, setElySkin] = useState(null);
   const [elyLoading, setElyLoading] = useState(true);
   const it = CAPES.find((c) => c.id === sel) || CAPES[0];
@@ -70,6 +84,14 @@ export default function Wardrobe({ settings, update, notify }) {
       .finally(() => setElyLoading(false));
   };
   useEffect(() => loadSkin(), [mcName]);
+  // Closing the Ely.by window means the player may have a new skin; Ely.by serves it a moment later.
+  useEffect(() => {
+    let stop = null;
+    onElyClosed(() => { loadSkin(true); setTimeout(() => loadSkin(true), 4000); }).then((f) => { stop = f; });
+    return () => { if (stop) stop(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mcName]);
+  const changeSkin = () => openElySkins().catch((e) => notify({ tone: 'danger', icon: 'close', title: 'Не открылось окно Ely.by', body: String((e && e.message) || e) }));
 
   return (
     <div className="wardrobe">
@@ -91,13 +113,49 @@ export default function Wardrobe({ settings, update, notify }) {
           <span className="wr-skin-name"><span className="body-strong">{elyLoading ? 'Загружаем скин…' : elySkin ? 'Скин с Ely.by' : 'Скин по умолчанию'}</span><Tag tone="outline">64×64</Tag></span>
           <span className="wr-skin-actions">
             <Button size="sm" variant="ghost" onClick={() => loadSkin(true)} disabled={elyLoading}>Обновить</Button>
-            <Button size="sm" icon="shirt" onClick={() => openUrl('https://ely.by/skins')}>Изменить на ely.by</Button>
+            <Button size="sm" icon="shirt" onClick={changeSkin}>Сменить скин</Button>
           </span>
         </div>
       </section>
       <section className="wr-shop">
-        <Tabs size="sm" value={tab} onChange={(t) => { setTab(t); if (t !== 'capes') notify({ icon: 'gift', title: 'Скоро', body: 'Скины, эмоции и питомцы появятся вместе с магазином сервера.' }); }}
-          items={[{ id: 'skins', label: 'Скины', icon: 'shirt' }, { id: 'capes', label: 'Плащи', icon: 'sparkle', count: CAPES.length }, { id: 'emotes', label: 'Эмоции', icon: 'bolt' }, { id: 'pets', label: 'Питомцы', icon: 'gift' }]} />
+        <Tabs size="sm" value={tab} onChange={setTab}
+          items={[{ id: 'skins', label: 'Скин', icon: 'shirt' }, { id: 'capes', label: 'Плащи', icon: 'sparkle', count: CAPES.length }, { id: 'emotes', label: 'Эмоции', icon: 'bolt', count: EMOTES.length }, { id: 'pets', label: 'Питомцы', icon: 'gift' }]} />
+        {tab === 'skins' ? (
+          <div className="wr-panel">
+            <div className="title">Твой скин — с Ely.by</div>
+            <p className="body">Скин хранится в аккаунте Ely.by, поэтому его видят все игроки на сервере. Нажми «Сменить скин» — страница загрузки Ely.by откроется прямо здесь, в окне лаунчера. Когда закроешь её, новый скин подтянется сам.</p>
+            <div className="wr-panel-actions">
+              <Button variant="luma" icon="shirt" onClick={changeSkin}>Сменить скин</Button>
+              <Button variant="ghost" onClick={() => loadSkin(true)} disabled={elyLoading}>Обновить</Button>
+            </div>
+          </div>
+        ) : null}
+        {tab === 'emotes' ? (
+          <>
+            <div className="wr-grid">
+              {EMOTES.map((x) => (
+                <button key={x.id} type="button" className={'wr-item' + (emote === x.id ? ' is-on' : '')} style={{ '--tone': 'var(--luma-ink)' }} onClick={() => { setEmote(x.id); if (x.id === 'waving') setPose('wave'); }}>
+                  <span className="wr-slot"><Icon name={x.icon} size={36} /></span>
+                  <span className="wr-item-name">{x.name}</span>
+                  <span className="wr-item-meta">в игре</span>
+                </button>
+              ))}
+            </div>
+            <div className="wr-detail">
+              <div>
+                <div className="wr-detail-name"><span className="title">{(EMOTES.find((e) => e.id === emote) || EMOTES[0]).name}</span></div>
+                <div className="caption">В игре нажми <b>X</b> — откроется колесо эмоций. Эмоцию видят все игроки рядом.</div>
+              </div>
+            </div>
+          </>
+        ) : null}
+        {tab === 'pets' ? (
+          <div className="wr-panel">
+            <div className="title">Питомцы — в следующем обновлении</div>
+            <p className="body">Маленький питомец, который ходит за тобой и виден всем на сервере. Делаем его вместе с настоящими плащами в игре.</p>
+          </div>
+        ) : null}
+        {tab === 'capes' ? (<>
         <div className="wr-grid">
           {CAPES.map((x) => (
             <button key={x.id} type="button" className={'wr-item' + (sel === x.id ? ' is-on' : '') + (x.locked ? ' is-locked' : '')} style={{ '--tone': x.tone }} onClick={() => setSel(x.id)}>
@@ -118,6 +176,7 @@ export default function Wardrobe({ settings, update, notify }) {
             <Button variant="luma" icon="gem" onClick={() => notify({ icon: 'gem', title: 'Примерка', body: it.name + ' за ' + it.price + ' люменов — покупка заработает с магазином сервера.' })}>Купить · {it.price}</Button>
           )}
         </div>
+        </>) : null}
       </section>
     </div>
   );

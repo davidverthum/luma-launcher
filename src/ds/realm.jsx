@@ -64,7 +64,7 @@ export function RealmCard({ realm, selected = false, onSelect, friends = [], siz
 }
 
 /** RealmRail — vertical switcher. Each realm glows in its own light when active. */
-export function RealmRail({ realms = REALMS, value, defaultValue, onChange, footer = [{ id: 'store', icon: 'bag', label: 'Магазин' }, { id: 'settings', icon: 'settings', label: 'Настройки' }], onFooter, className }) {
+export function RealmRail({ realms = REALMS, value, defaultValue, onChange, footer = [{ id: 'store', icon: 'bag', label: 'Магазин' }, { id: 'settings', icon: 'settings', label: 'Настройки' }], footerValue = null, onFooter, className }) {
   const [inner, setInner] = useState(defaultValue || (realms[0] && realms[0].id));
   const cur = value != null ? value : inner;
   return (
@@ -72,7 +72,7 @@ export function RealmRail({ realms = REALMS, value, defaultValue, onChange, foot
       <div className="lm-rail-brand" data-tauri-drag-region=""><LumaMark size={32} /></div>
       <div className="lm-rail-list" role="tablist" aria-orientation="vertical">
         {realms.map((r) => (
-          <button key={r.id} type="button" role="tab" aria-selected={cur === r.id} className={cx('lm-rail-item', cur === r.id && 'is-on')}
+          <button key={r.id} type="button" role="tab" aria-selected={cur === r.id && !footerValue} className={cx('lm-rail-item', cur === r.id && !footerValue && 'is-on')}
             style={{ '--realm': r.light }} onClick={() => { if (value == null) setInner(r.id); onChange && onChange(r.id); }}>
             <Emblem realm={r.emblem} size={32} />
             <span className="lm-rail-tip" role="tooltip">
@@ -86,7 +86,7 @@ export function RealmRail({ realms = REALMS, value, defaultValue, onChange, foot
       </div>
       <div className="lm-rail-foot">
         {footer.map((f) => (
-          <button key={f.id} type="button" className="lm-rail-item lm-rail-item--tool" aria-label={f.label} title={f.label} onClick={() => onFooter && onFooter(f.id)}>
+          <button key={f.id} type="button" className={cx('lm-rail-item', 'lm-rail-item--tool', footerValue === f.id && 'is-on')} aria-label={f.label} aria-current={footerValue === f.id ? 'page' : undefined} title={f.label} onClick={() => onFooter && onFooter(f.id)}>
             <Icon name={f.icon} size={24} />
           </button>
         ))}

@@ -169,7 +169,7 @@ export function Tabs({ items, value, defaultValue, onChange, size = 'md', varian
   const [ind, setInd] = useState(null);
   const measure = () => {
     const el = box.current && box.current.querySelector('[data-id="' + cur + '"]');
-    if (el) setInd({ left: el.offsetLeft, width: el.offsetWidth });
+    setInd(el ? { left: el.offsetLeft, width: el.offsetWidth } : null);
   };
   useLayoutEffect(measure, [cur, items.length]);
   useEffect(() => {

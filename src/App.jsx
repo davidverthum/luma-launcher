@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RealmRail, TitleBar, CommandPalette, Toast, Button, VoxelArt } from './ds/index.js';
-import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel, isAdmin, buildChannel, onGameCrash, notifySystem } from './native.js';
+import { RealmRail, TitleBar, CommandPalette, Toast, Button, VoxelArt, Icon, PlayerHead } from './ds/index.js';
+import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel, isAdmin, buildChannel, onGameCrash, notifySystem, onJoins, setJoinAlerts } from './native.js';
 import { notesFor } from './changelog.js';
 import { useFitZoom } from './zoom.js';
 import { useAccent } from './accent.js';
@@ -83,7 +83,7 @@ export default function App() {
   const [artFit, setArtFit] = useState(null); // { h, fy, fx } from Home — see useArtFit
   const isMac = platform() === 'mac';
   useThemeMode(settings && settings.theme);
-  useAccent(settings && settings.accent);
+  useAccent(settings && settings.accent, settings && settings.accentColor);
   useFitZoom();
   useEffect(() => { if (route !== 'settings') setSettingsNav(null); }, [route]);
 
@@ -94,7 +94,7 @@ export default function App() {
     authMe(token).then((fresh) => {
       if (alive) update((s) => (s && s.profile ? { ...s, profile: { ...s.profile, ...fresh } } : s));
     }).catch(() => {
-      if (alive) { update({ profile: null }); notify({ tone: 'danger', icon: 'lock', title: 'Сессия истекла', body: 'Войди ещё раз.' }); }
+      if (alive) { update({ profile: null }); notify({ keep: true, tone: 'danger', icon: 'lock', title: 'Сессия истекла', body: 'Войди ещё раз.' }); }
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,7 +107,7 @@ export default function App() {
     elyRefresh(settings.mc.accessToken, settings.mc.clientToken).then((session) => {
       if (alive) update((s) => (s && s.mc ? { ...s, mc: { ...s.mc, accessToken: session.accessToken, clientToken: session.clientToken } } : s));
     }).catch(() => {
-      if (alive) { update((s) => (s ? { ...s, mc: null } : s)); notify({ tone: 'danger', icon: 'lock', title: 'Minecraft-аккаунт отвязан', body: 'Сессия Ely.by истекла — привяжи аккаунт заново в настройках.' }); }
+      if (alive) { update((s) => (s ? { ...s, mc: null } : s)); notify({ keep: true, tone: 'danger', icon: 'lock', title: 'Minecraft-аккаунт отвязан', body: 'Сессия Ely.by истекла — привяжи аккаунт заново в настройках.' }); }
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,7 +130,7 @@ export default function App() {
       if (!alive || !upd) return;
       const switching = upd.channel !== upd.from_channel;
       notify({
-        icon: 'download', duration: 0,
+        keep: true, icon: 'download', duration: 0,
         title: switching ? 'Переход на ветку «' + channelLabel(upd.channel) + '» · ' + upd.version : 'Доступно обновление ' + upd.version,
         body: switching
           ? 'Сейчас стоит ' + appVersion + ' из ветки «' + channelLabel(upd.from_channel) + '». Лаунчер поставит ветку «' + channelLabel(upd.channel) + '» и перезапустится.'
@@ -154,7 +154,7 @@ export default function App() {
       if (!notes) return;
       const more = notes.items.length - 1;
       notify({
-        icon: 'sparkle', duration: 15000,
+        keep: true, icon: 'sparkle', duration: 15000,
         title: 'Что нового в ' + appVersion + (notes.channel ? ' · ' + channelLabel(notes.channel) : ''),
         body: notes.items[0] + (more > 0 ? ' И ещё ' + more + ' — в «О лаунчере».' : ''),
         actions: [{ label: 'Все изменения', icon: 'news', variant: 'luma', run: () => { setSettingsNav('launcher'); setRoute('settings'); } }],
@@ -164,13 +164,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedIn]);
 
+  // Toasts marked `keep` also land in the bell's history (joins, updates, crashes) for this session.
+  const [history, setHistory] = useState([]);
+  const [seenAt, setSeenAt] = useState(() => Date.now());
+  const [bellOpen, setBellOpen] = useState(false);
   const notify = useCallback((t) => {
     const id = ++toastSeq;
     const duration = t.duration === 0 ? 0 : t.duration || 6000;
     setToasts((list) => [...list.slice(-2), { ...t, id, duration }]);
     if (duration) setTimeout(() => setToasts((list) => list.filter((x) => x.id !== id)), duration);
+    if (t.keep) setHistory((h) => [{ ...t, id, at: Date.now() }, ...h].slice(0, 30));
     return id;
   }, []);
+  const unread = history.filter((h) => h.at > seenAt).length;
+  const toggleBell = () => setBellOpen((o) => { if (!o) setSeenAt(Date.now()); return !o; });
   const dismiss = (id) => setToasts((list) => list.filter((x) => x.id !== id));
 
   useEffect(() => {
@@ -185,24 +192,20 @@ export default function App() {
   const server = useServer();
   const realm = liveRealm(server);
 
-  // «X теперь на сервере»: names new to the server's player sample since the last poll. Only
-  // between two answers from a running server, so a restart doesn't announce everyone.
-  const lastSample = useRef(null);
+  // «X теперь на сервере» is watched by the core (the OS slows this window's timers while it's
+  // minimized); it sends the system notification itself and hands the window the names.
+  const joinsOn = !!settings && settings.notifyJoins !== false;
+  const myNick = settings ? (settings.mc && settings.mc.name) || '' : '';
+  useEffect(() => { setJoinAlerts(joinsOn, myNick); }, [joinsOn, myNick]);
   useEffect(() => {
-    if (!server) return;
-    const prev = lastSample.current;
-    const now = server.online ? server.sample || [] : null;
-    lastSample.current = now;
-    if (!prev || !now || !settings || settings.notifyJoins === false) return;
-    const me = String((settings.mc && settings.mc.name) || '').toLowerCase();
-    const joined = now.filter((n) => !prev.includes(n) && n.toLowerCase() !== me);
-    if (!joined.length) return;
-    const title = (joined.length === 1 ? joined[0] : joined.slice(0, -1).join(', ') + ' и ' + joined[joined.length - 1]) + ' теперь на сервере';
-    const body = 'Онлайн ' + server.players + ' из ' + server.max + ' — заходи!';
-    notify({ head: joined[0], title, body, duration: 10000, actions: [{ label: 'Играть', icon: 'play', variant: 'luma', run: () => setRoute('home') }] });
-    if (!document.hasFocus()) notifySystem(title, body);
+    let stop = null;
+    onJoins(({ names, players, max }) => {
+      const title = (names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' и ' + names[names.length - 1]) + ' теперь на сервере';
+      notify({ keep: true, head: names[0], title, body: 'Онлайн ' + players + ' из ' + max + ' — заходи!', duration: 10000, actions: [{ label: 'Играть', icon: 'play', variant: 'luma', run: () => setRoute('home') }] });
+    }).then((f) => { stop = f; });
+    return () => { if (stop) stop(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [server]);
+  }, []);
 
   // Minecraft quit badly → the crash dialog (and a system notification if the launcher is behind the game).
   const [crash, setCrash] = useState(null);
@@ -210,6 +213,7 @@ export default function App() {
     let stop = null;
     onGameCrash((c) => {
       setCrash(c);
+      setHistory((h) => [{ id: ++toastSeq, at: Date.now(), tone: 'danger', icon: 'close', title: 'Игра вылетела', body: c.summary || 'Причина и отчёт — в окне помощника.' }, ...h].slice(0, 30));
       if (!document.hasFocus()) notifySystem('Игра вылетела', c.summary || 'Открой Luma — там причина и отчёт.');
     }).then((f) => { stop = f; });
     return () => { if (stop) stop(); };
@@ -277,21 +281,65 @@ export default function App() {
         </div>
       ) : null}
       <div className="app-rail">
-        <RealmRail realms={[realm]} value={realm.id} onChange={() => setRoute('home')} footer={admin ? RAIL_FOOTER_ADMIN : RAIL_FOOTER} onFooter={(id) => setRoute(id)} />
+        <RealmRail realms={[realm]} value={realm.id} onChange={() => setRoute('home')} footer={admin ? RAIL_FOOTER_ADMIN : RAIL_FOOTER} footerValue={RAIL_FOOTER_ADMIN.some((f) => f.id === route) ? route : null} onFooter={(id) => setRoute(id)} />
       </div>
       <div className="app-top">
         <TitleBar nav={NAV} active={['home', 'realms', 'map', 'wardrobe', 'news'].includes(route) ? route : 'none'} onNav={setRoute}
-          user={{ name: settings.profile.name, rank: settings.profile.rank }} balance={null} notifications={0}
+          user={{ name: settings.profile.name, rank: settings.profile.rank }} balance={null} notifications={unread}
           onSearch={() => setPalette(true)} onAccount={() => setRoute('settings')}
-          onNotifications={() => notify({ icon: 'bell', title: server && server.online ? 'Сервер работает' : 'Сервер не отвечает', body: server && server.online ? 'Онлайн ' + server.players + ' из ' + server.max + ' · ' + modpack.server.address : 'Проверим ещё раз через полминуты.' })}
+          onNotifications={toggleBell}
           brand={isMac} controls={!isMac} onMinimize={win.minimize} onMaximize={win.toggleMaximize} onClose={win.close} />
       </div>
       <main className={'app-main route-' + route}>{screens[route] || screens.home}</main>
       <CommandPalette open={palette} groups={groups} onClose={() => setPalette(false)} onSelect={(it) => { setPalette(false); it.run && it.run(); }} />
+      {bellOpen ? <BellPanel history={history} server={server} onClose={() => setBellOpen(false)} /> : null}
       <Toasts list={toasts} dismiss={dismiss} />
       {crash ? <Crash crash={crash} notify={notify} onClose={() => setCrash(null)} /> : null}
       {updating ? <Updating state={updating} onRetry={() => startUpdate(updating.upd)} onClose={() => setUpdating(null)} /> : null}
     </div>
+  );
+}
+
+function ago(at) {
+  const m = Math.round((Date.now() - at) / 60000);
+  if (m < 1) return 'только что';
+  if (m < 60) return m + ' мин назад';
+  return Math.floor(m / 60) + ' ч назад';
+}
+
+/** The bell: what happened this session (joins, updates, crashes) and the server's state right now. */
+function BellPanel({ history, server, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const online = server && server.online;
+  return (
+    <>
+      <div className="bell-scrim" onClick={onClose} />
+      <div className="bell-panel" role="dialog" aria-label="Уведомления">
+        <div className="bell-head">
+          <span className="title">Уведомления</span>
+          <span className="caption"><i className={'lm-mark-dot ' + (online ? 'is-online' : 'is-offline')} /> {online ? 'Онлайн ' + server.players + ' из ' + server.max : server ? 'Сервер не отвечает' : 'Проверяем сервер…'}</span>
+        </div>
+        {history.length ? (
+          <ul className="bell-list">
+            {history.map((h) => (
+              <li key={h.id} className={'bell-item' + (h.tone === 'danger' ? ' is-danger' : '')}>
+                <span className="bell-item-lead">{h.head ? <PlayerHead name={h.head} size={28} /> : <Icon name={h.icon || 'bell'} size={18} />}</span>
+                <span className="bell-item-main">
+                  <span className="body-strong">{h.title}</span>
+                  {h.body ? <span className="caption">{h.body}</span> : null}
+                  {h.actions ? <span className="bell-item-actions">{h.actions.map((a) => <Button key={a.label} size="sm" variant={a.variant || 'glass'} icon={a.icon} onClick={() => { a.run && a.run(); onClose(); }}>{a.label}</Button>)}</span> : null}
+                </span>
+                <span className="caption bell-item-time">{ago(h.at)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="body bell-empty">Пока тихо. Здесь появятся входы игроков, обновления и вылеты игры.</p>}
+      </div>
+    </>
   );
 }
 

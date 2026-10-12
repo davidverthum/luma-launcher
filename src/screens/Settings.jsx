@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Slider, Button, Icon, Tabs, Tag, PlayerHead, RankBadge, Input, Toggle } from '../ds/index.js';
 import { CHANNEL_INFO, historyFor } from '../changelog.js';
-import { ACCENTS } from '../accent.js';
-import { systemInfo, inTauri, modpack, packMods, openUrl, elyLogin, checkUpdate, appVersion, CHANNELS, channelLabel, buildChannel, listShaders, listLocalMods, addLocalMod, removeLocalMod, setLocalModEnabled, modCards, setShader, applyPerfPreset } from '../native.js';
+import { ACCENTS, customAccent } from '../accent.js';
+import { systemInfo, inTauri, modpack, packMods, openUrl, elyLogin, checkUpdate, appVersion, CHANNELS, channelLabel, buildChannel, listShaders, listLocalMods, addLocalMod, removeLocalMod, setLocalModEnabled, modCards, setShader, applyPerfPreset, optionalMods } from '../native.js';
 
 const plural = (n, [one, few, many]) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many; };
 
 const NAV = [['perf', 'chip', 'Производительность'], ['mods', 'package', 'Моды'], ['look', 'sparkle', 'Внешний вид'], ['account', 'user', 'Аккаунт'], ['launcher', 'block', 'О лаунчере']];
-const PRESETS = [['low', 'Слабый ПК'], ['medium', 'Средний'], ['high', 'Мощный']];
+const PRESETS = [
+  { id: 'low', label: 'Слабый ПК', points: ['Дальность 6 чанков', 'Быстрая графика, без мягких теней', 'Мало частиц, без теней мобов', 'Шейдеры выключены', 'FPS до 60 — меньше греется'] },
+  { id: 'medium', label: 'Средний', points: ['Дальность 10 чанков', 'Красивая графика, мягкие тени', 'Часть частиц', 'Шейдеры — как ты выбрал', 'FPS до 120'] },
+  { id: 'high', label: 'Мощный', points: ['Дальность 16 чанков', 'Самая красивая графика', 'Все частицы', 'Шейдеры Complementary, если не выбраны свои', 'Дальняя прорисовка (Distant Horizons)', 'FPS без ограничений'] },
+];
 
 /** A Modrinth icon, or a package glyph while it loads or when Modrinth doesn't know the mod. */
 function ModIcon({ card }) {
@@ -36,7 +40,10 @@ export default function Settings({ settings, update, notify, realm, openFolder, 
   const runPreset = (preset) => {
     setPresetBusy(preset);
     applyPerfPreset(preset)
-      .then(() => { update((s) => ({ ...s, perfPreset: preset })); notify({ icon: 'bolt', title: 'Готово', body: 'Настройки применятся при следующем «Играть».' }); })
+      .then(() => {
+        update((s) => ({ ...s, perfPreset: preset, distantHorizons: preset === 'high' ? true : preset === 'low' ? false : s.distantHorizons }));
+        notify({ icon: 'bolt', title: 'Готово', body: 'Настройки применятся при следующем «Играть».' });
+      })
       .catch((e) => notify({ tone: 'danger', icon: 'close', title: 'Не применилось', body: String((e && e.message) || e) }))
       .finally(() => setPresetBusy(null));
   };
@@ -163,29 +170,31 @@ export default function Settings({ settings, update, notify, realm, openFolder, 
               <Button variant="luma" icon="bolt" onClick={() => { setRam(auto); notify({ icon: 'bolt', title: 'Готово', body: 'Выставили ' + auto + ' ГБ памяти — применится при следующем «Играть».' }); }}>Автонастройка</Button>
             </header>
             <div className="st-grid">
-              <section className="st-card">
+              <section className="st-card st-card--wide">
                 <Slider label="Память для игры" value={ram} onChange={setRam} min={2} max={maxRam} step={1} unit="ГБ" recommend={rec} marks={marks} />
               </section>
-              <section className="st-card">
+              <section className="st-card st-card--wide">
                 <div className="body-strong">Пресет под твой ПК</div>
-                <p className="caption">Дальность прорисовки, частицы, сглаживание теней и шейдеры — всё разом. Применится при следующем «Играть».</p>
-                <div className="st-row">
-                  {PRESETS.map(([id, label]) => (
-                    <Button key={id} size="sm" variant={settings.perfPreset === id ? 'luma' : 'glass'} loading={presetBusy === id} disabled={!!presetBusy} onClick={() => runPreset(id)}>{label}</Button>
-                  ))}
+                <p className="caption">Меняет всё разом, применится при следующем «Играть». Потом любую настройку можно поправить в самой игре.</p>
+                <div className="st-presets" role="radiogroup" aria-label="Пресет под ПК">
+                  {PRESETS.map((p) => {
+                    const on = settings.perfPreset === p.id;
+                    return (
+                      <button key={p.id} type="button" role="radio" aria-checked={on} className={'st-preset' + (on ? ' is-on' : '')} disabled={!!presetBusy} onClick={() => runPreset(p.id)}>
+                        <span className="st-preset-head"><span className="body-strong">{p.label}</span>{presetBusy === p.id ? <span className="caption">применяем…</span> : on ? <Icon name="check" size={16} /> : null}</span>
+                        <ul className="caption">{p.points.map((x) => <li key={x}>{x}</li>)}</ul>
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
-              <section className="st-card st-launch">
-                <div className="body-strong">Как запускается игра</div>
-                <ol className="st-steps">
-                  <li><b>Luma</b> скачивает и сверяет {modpack.mods.length} модов ({String(modpack.totalMb).replace('.', ',')} МБ), версию игры и Java — ничего ставить вручную не нужно.</li>
-                  <li>Запускает Minecraft напрямую со своим аккаунтом Ely.by — без официального лаунчера и Microsoft.</li>
-                </ol>
-                <div className="st-row">
-                  <Button size="sm" icon="folder" onClick={() => openFolder()}>Папка игры</Button>
-                  <Tag tone="outline" icon="package">Fabric {modpack.minecraft}</Tag>
-                </div>
-              </section>
+              {optionalMods.find((m) => m.slug === 'distanthorizons') ? (
+                <section className="st-card st-toggles st-card--wide">
+                  <Toggle label="Дальняя прорисовка (Distant Horizons)"
+                    hint={'Горы и леса видно на тысячи блоков. Только для мощных ПК и видеокарт: +' + optionalMods.find((m) => m.slug === 'distanthorizons').mb.toString().replace('.', ',') + ' МБ, нагружает видеокарту. Включается пресетом «Мощный».'}
+                    checked={!!settings.distantHorizons} onChange={(v) => update({ distantHorizons: v })} />
+                </section>
+              ) : null}
             </div>
           </>
         ) : null}
@@ -269,7 +278,22 @@ export default function Settings({ settings, update, notify, realm, openFolder, 
                     </button>
                   );
                 })}
+                {(() => {
+                  const on = settings.accent === 'custom';
+                  const c = customAccent(settings.accentColor);
+                  return (
+                    <label role="radio" aria-checked={on} className={'st-swatch st-swatch--custom' + (on ? ' is-on' : '')} style={{ '--sw': on ? c.night : undefined, '--sw-ink': c.ink }} title="Любой цвет из палитры">
+                      <span className="st-swatch-chip" aria-hidden="true">{on ? <Icon name="check" size={16} /> : <Icon name="plus" size={16} />}</span>
+                      <span className="caption">Свой</span>
+                      <input type="color" className="st-swatch-input" value={settings.accentColor || '#d4ff3d'}
+                        onChange={(e) => update({ accent: 'custom', accentColor: e.target.value })} aria-label="Выбрать свой цвет" />
+                    </label>
+                  );
+                })()}
               </div>
+              {settings.accent === 'custom' && customAccent(settings.accentColor).night.toLowerCase() !== (settings.accentColor || '').toLowerCase() ? (
+                <p className="caption st-accent-hint">Слишком тёмные цвета Luma чуть осветляет, чтобы надпись «Играть» оставалась читаемой.</p>
+              ) : null}
             </section>
             <section className="st-card st-toggles st-look-notify">
               <Toggle label="Когда кто-то заходит на сервер" hint="Уведомление в лаунчере, а если он свёрнут — уведомление Windows."

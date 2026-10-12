@@ -13,6 +13,7 @@ mod rcon;
 mod shots;
 mod slp;
 mod updates;
+mod watch;
 
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, process::Command, time::Duration};
@@ -151,6 +152,10 @@ fn modpack_info() -> game::PackInfo {
 /// Live status of the Luma server (Server List Ping), never an error: offline comes back as data.
 #[tauri::command]
 async fn server_status() -> slp::Status {
+    status_now().await
+}
+
+pub(crate) async fn status_now() -> slp::Status {
     let address = game::modpack().server.address.clone();
     let (host, port) = slp::split_address(&address);
     let status = match net::resolve(&address).await {
@@ -177,7 +182,7 @@ async fn prepare_game(app: AppHandle, ram_gb: u32) -> Result<PrepareReport, Stri
     let ram_gb = if ram_gb == 0 { auto_ram_gb() } else { ram_gb };
     let pack = game::modpack();
     let instance = game::instance_dir(&app)?;
-    let sync = game::sync_mods(&app, pack, &instance).await?;
+    let sync = game::sync_mods(&app, pack, &instance, &[]).await?;
     let mc = game::minecraft_dir(&app)?;
     let inst = instance.clone();
     tauri::async_runtime::spawn_blocking(move || game::install_profile(game::modpack(), &mc, &inst, ram_gb))
@@ -310,10 +315,10 @@ async fn ely_skin(name: String) -> Result<Option<String>, String> {
 /// session so non-premium accounts can join the server. Progress goes out as `luma://progress`.
 /// `accent`: the launcher's accent id, for the game's own title screen (Luma Menu).
 #[tauri::command]
-async fn play_direct(app: AppHandle, ram_gb: u32, session: elyby::Session, accent: Option<String>) -> Result<(), String> {
+async fn play_direct(app: AppHandle, ram_gb: u32, session: elyby::Session, accent: Option<String>, optional: Option<Vec<String>>) -> Result<(), String> {
     let ram_gb = if ram_gb == 0 { auto_ram_gb() } else { ram_gb };
     let instance = game::instance_dir(&app)?;
-    game::sync_mods(&app, game::modpack(), &instance).await?;
+    game::sync_mods(&app, game::modpack(), &instance, &optional.unwrap_or_default()).await?;
     mods::ensure_default_keys(&instance)?;
     launch::play(&app, ram_gb, &session, &instance, accent.as_deref()).await
 }
@@ -348,6 +353,37 @@ fn open_crash_dir(app: AppHandle) -> Result<String, String> {
     let shown = dir.display().to_string();
     app.opener().open_path(shown.clone(), None::<&str>).map_err(|e| e.to_string())?;
     Ok(shown)
+}
+
+/// Ely.by has no API for changing a skin, so its own upload page opens in a launcher window
+/// (no access to the launcher's commands: capabilities cover only "main"). When it closes, the
+/// main window is told to fetch the fresh skin.
+#[tauri::command]
+fn open_ely_skins(app: AppHandle) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("ely") {
+        return w.set_focus().map_err(|e| e.to_string());
+    }
+    let url = "https://ely.by/skins/add".parse::<tauri::Url>().map_err(|e| e.to_string())?;
+    let w = tauri::WebviewWindowBuilder::new(&app, "ely", tauri::WebviewUrl::External(url))
+        .title("Ely.by — сменить скин")
+        .inner_size(1100.0, 820.0)
+        .min_inner_size(800.0, 600.0)
+        .center()
+        .build()
+        .map_err(|e| e.to_string())?;
+    let handle = app.clone();
+    w.on_window_event(move |e| {
+        if let tauri::WindowEvent::Destroyed = e {
+            let _ = tauri::Emitter::emit(&handle, "luma://ely-closed", ());
+        }
+    });
+    Ok(())
+}
+
+/// Join alerts are watched by the core (see watch.rs); the window only passes the toggle and nick.
+#[tauri::command]
+fn set_join_alerts(enabled: bool, me: Option<String>) {
+    watch::configure(enabled, me);
 }
 
 /// A Windows / macOS / Linux notification, for when the launcher isn't in front.
@@ -490,9 +526,12 @@ pub fn run() {
                 let _ = fs::create_dir_all(&dir);
                 let _ = app.asset_protocol_scope().allow_directory(&dir, false);
             }
+            watch::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            set_join_alerts,
+            open_ely_skins,
             system_info,
             detect_java,
             load_settings,

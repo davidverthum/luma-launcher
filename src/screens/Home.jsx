@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { PlayButton, IconButton, Tag, Led, Ping, HeadStack, Emblem, FriendRow, Icon, Sparkline } from '../ds/index.js';
 import { onlineHistory } from '../server.js';
-import { inTauri, modpack, onProgress, playDirect, screenshotSrc } from '../native.js';
+import { inTauri, modpack, onProgress, playDirect, screenshotSrc, enabledOptional } from '../native.js';
+import { gameAccentId } from '../accent.js';
 import { useScreenshots, shotCount, dayLabel, timeLabel } from '../shots.js';
 import { PlayMenu } from './PlayMenu.jsx';
 
@@ -73,7 +74,7 @@ export default function Home({ realm: r, settings, update, notify, setRoute, ope
       const mc = settings.mc;
       const session = { accessToken: mc.accessToken, clientToken: mc.clientToken, selectedProfile: { id: mc.uuid, name: mc.name } };
       setState('launching');
-      await playDirect(ram, session, settings.accent);
+      await playDirect(ram, session, gameAccentId(settings.accent, settings.accentColor), enabledOptional(settings));
       notify({ icon: 'play', title: 'Запускаем', body: 'Minecraft стартует отдельным окном — переключись в игру.', duration: 8000 });
     } catch (err) {
       notify({ tone: 'danger', icon: 'close', title: 'Не получилось запустить', body: String((err && err.message) || err), duration: 12000 });

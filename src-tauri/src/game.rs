@@ -69,6 +69,9 @@ pub struct Modpack {
     /// The Fabric loader version JSON, as meta.fabricmc.net serves it for the official launcher.
     pub profile: serde_json::Value,
     pub mods: Vec<ModFile>,
+    /// Mods the player switches on themselves (Distant Horizons for strong PCs), by slug.
+    #[serde(default)]
+    pub optional: Vec<ModFile>,
     pub shaders: Vec<ShaderFile>,
 }
 
@@ -83,6 +86,14 @@ impl Modpack {
     }
     pub fn total_bytes(&self) -> u64 {
         self.mods.iter().map(|m| m.size).sum()
+    }
+    /// The pack's mods plus the optional ones switched on; unknown slugs are ignored.
+    pub fn active_mods(&self, optional: &[String]) -> Vec<&ModFile> {
+        self.mods.iter().chain(self.optional.iter().filter(|m| optional.contains(&m.slug))).collect()
+    }
+    /// Every jar the pack can put into `mods/`, optional ones included.
+    pub fn is_pack_file(&self, file: &str) -> bool {
+        self.mods.iter().chain(&self.optional).any(|m| m.file == file)
     }
 }
 
@@ -203,18 +214,19 @@ pub fn http() -> Result<reqwest::Client, String> {
 /// Brings `<instance>/mods` to exactly the modpack: verified downloads, nothing half-written,
 /// and jars a previous Luma sync put there but the pack no longer lists are removed.
 /// Jars the player added by hand are left alone.
-pub async fn sync_mods(app: &AppHandle, pack: &Modpack, instance: &Path) -> Result<SyncReport, String> {
+pub async fn sync_mods(app: &AppHandle, pack: &Modpack, instance: &Path, optional: &[String]) -> Result<SyncReport, String> {
     let mods_dir = instance.join("mods");
     fs::create_dir_all(&mods_dir).map_err(|e| e.to_string())?;
     let state_path = instance.join(STATE_FILE);
     let previous: SyncState = fs::read(&state_path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
 
-    let total_bytes = pack.total_bytes();
-    let mut progress = Progress { stage: "mods", done_files: 0, total_files: pack.mods.len(), done_bytes: 0, total_bytes, current: String::new() };
+    let list = pack.active_mods(optional);
+    let total_bytes = list.iter().map(|m| m.size).sum();
+    let mut progress = Progress { stage: "mods", done_files: 0, total_files: list.len(), done_bytes: 0, total_bytes, current: String::new() };
     let mut report = SyncReport::default();
     let client = http()?;
 
-    for m in &pack.mods {
+    for m in &list {
         progress.current = m.name.clone();
         let _ = app.emit("luma://progress", &progress);
         let path = mods_dir.join(&m.file);
@@ -246,7 +258,7 @@ pub async fn sync_mods(app: &AppHandle, pack: &Modpack, instance: &Path) -> Resu
         let _ = app.emit("luma://progress", &progress);
     }
 
-    let current: Vec<String> = pack.mods.iter().map(|m| m.file.clone()).collect();
+    let current: Vec<String> = list.iter().map(|m| m.file.clone()).collect();
     for old in previous.files.iter().filter(|f| !current.contains(f)) {
         // Only plain file names we wrote ourselves; never follow paths out of the folder.
         if !old.contains('/') && !old.contains('\\') && fs::remove_file(mods_dir.join(old)).is_ok() {
@@ -409,6 +421,17 @@ mod tests {
             assert!(m.file.ends_with(".jar") && !m.file.contains('/'), "{}", m.slug);
         }
         assert!(p.mods.iter().any(|m| m.slug == "zoomify"));
+    }
+
+    #[test]
+    fn optional_mods_only_when_switched_on() {
+        let p = modpack();
+        let dh = p.optional.iter().find(|m| m.slug == "distanthorizons").expect("DH is optional");
+        assert!(dh.url.starts_with("https://cdn.modrinth.com/") && dh.sha512.len() == 128);
+        assert!(!p.mods.iter().any(|m| m.slug == dh.slug), "optional mods stay out of everyone's download");
+        assert_eq!(p.active_mods(&[]).len(), p.mods.len());
+        assert_eq!(p.active_mods(&["distanthorizons".into(), "nope".into()]).len(), p.mods.len() + 1);
+        assert!(p.is_pack_file(&dh.file));
     }
 
     #[test]

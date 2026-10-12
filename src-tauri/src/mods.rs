@@ -20,7 +20,7 @@ pub struct LocalMod {
 
 /// Mods in `mods/` that aren't part of the pinned pack — the ones the player added, on or off.
 pub fn list_local(pack: &Modpack, instance: &Path) -> Result<Vec<LocalMod>, String> {
-    let known: std::collections::HashSet<&str> = pack.mods.iter().map(|m| m.file.as_str()).collect();
+    let known: std::collections::HashSet<&str> = pack.mods.iter().chain(&pack.optional).map(|m| m.file.as_str()).collect();
     let mut out = Vec::new();
     if let Ok(entries) = fs::read_dir(instance.join("mods")) {
         for e in entries.flatten() {
@@ -48,7 +48,7 @@ fn local_name<'a>(pack: &Modpack, file: &'a str) -> Result<&'a str, String> {
     if file.is_empty() || file.contains(['/', '\\', ':']) || file.contains("..") || !file.ends_with(".jar") {
         return Err("неверное имя мода".into());
     }
-    if pack.mods.iter().any(|m| m.file == file) {
+    if pack.is_pack_file(file) {
         return Err("это мод сборки — его снимают обновлением сборки, не отсюда".into());
     }
     Ok(file)
@@ -225,15 +225,15 @@ fn preset_options(preset: &str) -> Result<Vec<(&'static str, &'static str)>, Str
     Ok(match preset {
         "low" => vec![
             ("renderDistance", "6"), ("simulationDistance", "5"), ("particles", "2"),
-            ("graphicsMode", "0"), ("ao", "0"), ("maxFps", "60"), ("entityShadows", "false"),
+            ("graphicsMode", "0"), ("ao", "false"), ("maxFps", "60"), ("entityShadows", "false"),
         ],
         "medium" => vec![
             ("renderDistance", "10"), ("simulationDistance", "8"), ("particles", "1"),
-            ("graphicsMode", "1"), ("ao", "1"), ("maxFps", "120"), ("entityShadows", "true"),
+            ("graphicsMode", "1"), ("ao", "true"), ("maxFps", "120"), ("entityShadows", "true"),
         ],
         "high" => vec![
             ("renderDistance", "16"), ("simulationDistance", "10"), ("particles", "0"),
-            ("graphicsMode", "2"), ("ao", "2"), ("maxFps", "260"), ("entityShadows", "true"),
+            ("graphicsMode", "2"), ("ao", "true"), ("maxFps", "260"), ("entityShadows", "true"),
         ],
         other => return Err(format!("неизвестный пресет {other}")),
     })
@@ -264,8 +264,13 @@ pub async fn apply_preset(client: &reqwest::Client, pack: &Modpack, instance: &P
 
 // ── default keys ─────────────────────────────────────────────────────────
 
-/// Pack mods that ship on the same key. Simple Voice Chat's mute and Xaero's World Map are both M.
-const DEFAULT_KEYS: [(&str, &str); 1] = [("key_key.mute_microphone", "key.keyboard.j")];
+/// Pack mods that ship on the same key: Simple Voice Chat's mute and Xaero's World Map are both M;
+/// Emotecraft's emote wheel sits on B with the backpack and new waypoint, its debug key on O with Iris.
+const DEFAULT_KEYS: [(&str, &str); 3] = [
+    ("key_key.mute_microphone", "key.keyboard.j"),
+    ("key_key.emotecraft.fastchoose", "key.keyboard.x"),
+    ("key_key.emotecraft.debug", "key.keyboard.unknown"),
+];
 /// Minecraft 1.21.1's data version; a fresh options.txt needs it or the game "upgrades" it as ancient.
 const OPTIONS_VERSION: &str = "3955";
 
@@ -349,7 +354,14 @@ mod tests {
         let path = dir.join("options.txt");
         fs::write(&path, "version:3955\nkey_key.mute_microphone:key.keyboard.k\nlastServer:x1.qwertyx.host:28828\n").unwrap();
         ensure_default_keys(&dir).unwrap();
-        assert_eq!(fs::read_to_string(&path).unwrap(), "version:3955\nkey_key.mute_microphone:key.keyboard.k\nlastServer:x1.qwertyx.host:28828\n");
+        let o = read_options(&path);
+        assert_eq!(o.get("key_key.mute_microphone").map(String::as_str), Some("key.keyboard.k"));
+        assert_eq!(o.get("key_key.emotecraft.fastchoose").map(String::as_str), Some("key.keyboard.x"));
+
+        // Everything already bound: the file isn't touched at all.
+        let full = fs::read_to_string(&path).unwrap();
+        ensure_default_keys(&dir).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), full);
     }
 
     #[test]
