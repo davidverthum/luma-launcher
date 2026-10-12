@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SkinViewer, Tabs, Button, Tag, Icon } from '../ds/index.js';
 import { CAPES, PETS, capeImage } from '../cosmetics.js';
-import { skinFor, openElySkins, onElyClosed } from '../native.js';
+import { skinFor, openElySkins, onElyClosed, setLook } from '../native.js';
 
+
+// Luma Cosmetics rereads the pick every couple of seconds, so a running game changes too.
+const INSTANT = 'В игре — через пару секунд, даже если она уже запущена.';
 
 // Emotecraft's built-in emotes (the jar ships these nine); the wheel opens on X in game.
 const EMOTES = [
@@ -52,6 +55,11 @@ export default function Wardrobe({ settings, update, notify }) {
   const [petSel, setPetSel] = useState(pet === 'none' ? PETS[0].id : pet);
   const petIt = PETS.find((p) => p.id === petSel) || PETS[0];
   const mcName = (settings.mc && settings.mc.name) || settings.profile.name;
+  const wear = (patch) => {
+    update(patch);
+    const next = { cape: settings.cape || 'luma', pet: settings.pet || 'none', ...patch };
+    setLook(next.cape, next.pet).catch(() => {});
+  };
 
   // The same cached skin as the player's head in the title bar, so both always match.
   const loadSkin = (fresh = false) => {
@@ -145,8 +153,8 @@ export default function Wardrobe({ settings, update, notify }) {
               <div className="caption">Ходит рядом и виден всем на сервере. Прячется, когда ты крадёшься, — засаду не выдаст.</div>
             </div>
             <span className="wr-detail-actions">
-              {pet !== 'none' ? <Button variant="ghost" onClick={() => { update({ pet: 'none' }); notify({ icon: 'gift', title: 'Питомец остался дома', body: 'Со следующего «Играть».' }); }}>Без питомца</Button> : null}
-              {pet === petIt.id ? <Button variant="luma" icon="check" disabled>С тобой</Button> : <Button variant="luma" icon="gift" onClick={() => { update({ pet: petIt.id }); notify({ icon: 'gift', title: petIt.name + ' с тобой', body: 'В игре — со следующего «Играть».' }); }}>Взять</Button>}
+              {pet !== 'none' ? <Button variant="ghost" onClick={() => { wear({ pet: 'none' }); notify({ icon: 'gift', title: 'Питомец остался дома', body: INSTANT }); }}>Без питомца</Button> : null}
+              {pet === petIt.id ? <Button variant="luma" icon="check" disabled>С тобой</Button> : <Button variant="luma" icon="gift" onClick={() => { wear({ pet: petIt.id }); notify({ icon: 'gift', title: petIt.name + ' с тобой', body: INSTANT }); }}>Взять</Button>}
             </span>
           </div>
         </>) : null}
@@ -170,7 +178,7 @@ export default function Wardrobe({ settings, update, notify }) {
             <div className="wr-detail-name"><span className="title">{it ? it.name : 'Без плаща'}</span></div>
             <div className="caption">{it ? 'Его видят все игроки на сервере — и на элитрах тоже.' : 'Будет виден твой плащ с Ely.by, если он у тебя есть.'}</div>
           </div>
-          {worn === sel ? <Button variant="luma" icon="check" disabled>Надето</Button> : <Button variant="luma" icon="shirt" onClick={() => { update({ cape: sel }); notify({ icon: 'shirt', title: it ? it.name + ' надет' : 'Плащ снят', body: 'В игре — со следующего «Играть».' }); }}>{it ? 'Надеть' : 'Снять плащ'}</Button>}
+          {worn === sel ? <Button variant="luma" icon="check" disabled>Надето</Button> : <Button variant="luma" icon="shirt" onClick={() => { wear({ cape: sel }); notify({ icon: 'shirt', title: it ? it.name + ' надет' : 'Плащ снят', body: INSTANT }); }}>{it ? 'Надеть' : 'Снять плащ'}</Button>}
         </div>
         </>) : null}
       </section>

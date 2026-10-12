@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { VoxelArt, Logo, Input, Button, IconButton, Toggle, Led, Emblem, REALMS, useDrift, Icon, StatusMark } from '../ds/index.js';
-import { win, elyLogin, openUrl } from '../native.js';
+import { win, elyLogin, openUrl, appVersion } from '../native.js';
 
 export default function Login({ onLogin, isMac }) {
   const [username, setUsername] = useState('');
@@ -63,7 +63,7 @@ export default function Login({ onLogin, isMac }) {
         </div>
         <div className="lg-or"><span>или</span></div>
         <Button size="lg" block icon="block" type="button" onClick={() => openUrl('https://ely.by/register')}>Нет аккаунта — зарегистрироваться</Button>
-        <div className="lg-foot caption">Лаунчер 0.1.0 · <StatusMark status="online" /> аккаунт Ely.by, не Microsoft</div>
+        <div className="lg-foot caption">Лаунчер {appVersion} · <StatusMark status="online" /> аккаунт Ely.by, не Microsoft</div>
       </form>
     </div>
   );

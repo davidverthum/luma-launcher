@@ -104,6 +104,7 @@ final class Pets {
 				if (e == null) continue;
 				pet = new Pet(choice.pet(), e);
 				PETS.put(player.getUuid(), pet);
+				LOG.info("Luma Cosmetics: {} walks with {}", player.getName().getString(), choice.pet());
 				place(pet, player, true);
 			} else {
 				place(pet, player, false);

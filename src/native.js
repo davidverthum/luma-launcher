@@ -142,6 +142,9 @@ export function elyRefresh(accessToken, clientToken) {
 
 /** Syncs mods, then launches Minecraft directly with the given Ely.by session. `accent` (an
  * accent.js id) colors the game's own title screen; none — lime. */
+/** The wardrobe's cape and pet, for Luma Cosmetics — it rereads them in a running game too. */
+export const setLook = (cape, pet) => (inTauri ? invoke('set_look', { cape: cape || null, pet: pet || null }) : Promise.resolve());
+
 export function playDirect(ramGb, session, accent = null, optional = [], look = {}) {
   if (!inTauri) return Promise.reject(new Error('Это браузерная версия — скачай Luma для своей системы.'));
   return invoke('play_direct', { ramGb, session, accent, optional, cape: look.cape || null, pet: look.pet || null });

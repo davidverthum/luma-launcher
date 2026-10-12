@@ -321,8 +321,15 @@ async fn play_direct(app: AppHandle, ram_gb: u32, session: elyby::Session, accen
     let instance = game::instance_dir(&app)?;
     game::sync_mods(&app, game::modpack(), &instance, &optional.unwrap_or_default()).await?;
     mods::ensure_default_keys(&instance)?;
+    launch::write_look(&instance, cape.as_deref(), pet.as_deref())?;
     let look = launch::Look { accent: accent.as_deref(), cape: cape.as_deref(), pet: pet.as_deref() };
     launch::play(&app, ram_gb, &session, &instance, &look).await
+}
+
+/// The wardrobe changed: tell Luma Cosmetics, which picks it up in a running game too.
+#[tauri::command]
+fn set_look(app: AppHandle, cape: Option<String>, pet: Option<String>) -> Result<(), String> {
+    launch::write_look(&game::instance_dir(&app)?, cape.as_deref(), pet.as_deref())
 }
 
 #[tauri::command]
@@ -551,6 +558,7 @@ pub fn run() {
             ely_refresh,
             ely_skin,
             play_direct,
+            set_look,
             list_shaders,
             list_local_mods,
             add_local_mod,

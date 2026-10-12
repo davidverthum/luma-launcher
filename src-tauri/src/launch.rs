@@ -392,10 +392,6 @@ fn classpath(libs: &[PathBuf], client_jar: &Path) -> String {
 
 // ── entry point ──────────────────────────────────────────────────────────────
 
-/// Downloads everything a direct launch needs — including Java itself, Mojang's own managed
-/// runtime, so players never install anything — and starts the game, handing it an Ely.by
-/// session through authlib-injector instead of a Microsoft login. Never blocks on the game
-/// process — once it's spawned, this returns.
 fn look_id(v: Option<&str>) -> Option<&str> {
     v.filter(|a| !a.is_empty() && a.len() <= 32 && a.chars().all(|c| c.is_ascii_lowercase()))
 }
@@ -408,6 +404,18 @@ pub struct Look<'a> {
     pub pet: Option<&'a str>,
 }
 
+/// The wardrobe's pick for Luma Cosmetics, which rereads it every couple of seconds — so a cape
+/// or pet changed while the game runs shows up without a restart. Anything that isn't a plain
+/// id is written as «none».
+pub fn write_look(instance: &Path, cape: Option<&str>, pet: Option<&str>) -> Result<(), String> {
+    let json = serde_json::json!({ "cape": look_id(cape).unwrap_or(""), "pet": look_id(pet).unwrap_or("") });
+    game::write_atomic(&instance.join("config").join("luma-cosmetics.json"), json.to_string().as_bytes())
+}
+
+/// Downloads everything a direct launch needs — including Java itself, Mojang's own managed
+/// runtime, so players never install anything — and starts the game, handing it an Ely.by
+/// session through authlib-injector instead of a Microsoft login. Never blocks on the game
+/// process — once it's spawned, this returns.
 pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Path, look: &Look<'_>) -> Result<(), String> {
     let client = game::http()?;
     let pack: &Modpack = game::modpack();
@@ -503,6 +511,15 @@ pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Pa
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn look_file_holds_only_plain_ids() {
+        let dir = std::env::temp_dir().join(format!("luma-look-{}", std::process::id()));
+        write_look(&dir, Some("neon"), Some("../x")).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir.join("config/luma-cosmetics.json")).unwrap()).unwrap();
+        assert_eq!(v, serde_json::json!({ "cape": "neon", "pet": "" }));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn look_ids_are_plain_lowercase_words() {
