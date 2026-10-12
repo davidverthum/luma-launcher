@@ -313,14 +313,16 @@ async fn ely_skin(name: String) -> Result<Option<String>, String> {
 
 /// Syncs mods, then launches Minecraft directly (no official launcher) using an Ely.by
 /// session so non-premium accounts can join the server. Progress goes out as `luma://progress`.
-/// `accent`: the launcher's accent id, for the game's own title screen (Luma Menu).
+/// `accent`: the launcher's accent id, for the game's own title screen (Luma Menu);
+/// `cape` / `pet`: what the player wears in game (Luma Cosmetics).
 #[tauri::command]
-async fn play_direct(app: AppHandle, ram_gb: u32, session: elyby::Session, accent: Option<String>, optional: Option<Vec<String>>) -> Result<(), String> {
+async fn play_direct(app: AppHandle, ram_gb: u32, session: elyby::Session, accent: Option<String>, optional: Option<Vec<String>>, cape: Option<String>, pet: Option<String>) -> Result<(), String> {
     let ram_gb = if ram_gb == 0 { auto_ram_gb() } else { ram_gb };
     let instance = game::instance_dir(&app)?;
     game::sync_mods(&app, game::modpack(), &instance, &optional.unwrap_or_default()).await?;
     mods::ensure_default_keys(&instance)?;
-    launch::play(&app, ram_gb, &session, &instance, accent.as_deref()).await
+    let look = launch::Look { accent: accent.as_deref(), cape: cape.as_deref(), pet: pet.as_deref() };
+    launch::play(&app, ram_gb, &session, &instance, &look).await
 }
 
 #[tauri::command]

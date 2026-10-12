@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "luma-cosmetics",
+  "version": "${version}",
+  "name": "Luma Cosmetics",
+  "description": "Плащи и питомцы из лаунчера Luma — их видят все игроки на сервере.",
+  "authors": ["Luma"],
+  "contact": {
+    "sources": "https://github.com/davidverthum/luma-launcher"
+  },
+  "environment": "*",
+  "entrypoints": {
+    "main": ["gg.luma.cosmetics.LumaCosmetics"],
+    "client": ["gg.luma.cosmetics.client.LumaCosmeticsClient"]
+  },
+  "mixins": ["luma-cosmetics.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.1",
+    "java": ">=21"
+  }
+}

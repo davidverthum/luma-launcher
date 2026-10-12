@@ -1,17 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { SkinViewer, Tabs, Button, Tag, Icon, RankBadge, defaultCape } from '../ds/index.js';
+import { SkinViewer, Tabs, Button, Tag, Icon } from '../ds/index.js';
+import { CAPES, PETS, capeImage } from '../cosmetics.js';
 import { skinFor, openElySkins, onElyClosed } from '../native.js';
 
-const CAPES = [
-  { id: 'luma', name: 'Плащ Luma', icon: 'block', rarity: 'Сезонный', tone: 'var(--luma-ink)', hex: '#d4ff3d', owned: true },
-  { id: 'dawn', name: 'Плащ «Рассвет»', icon: 'sparkle', rarity: 'Награда пропуска', tone: 'var(--realm-dawn)', hex: '#ffb547', owned: true },
-  { id: 'soul', name: 'Плащ «Огонь душ»', icon: 'bolt', rarity: 'Редкий', tone: 'var(--realm-techno)', hex: '#4fe3ff', price: 450 },
-  { id: 'neon', name: 'Плащ «Неон»', icon: 'crown', rarity: 'Эпический', tone: 'var(--realm-arena)', hex: '#ff5fae', price: 690 },
-  { id: 'lava', name: 'Плащ «Лава»', icon: 'gem', rarity: 'Редкий', tone: 'var(--realm-anarchy)', hex: '#ff6b3d', price: 450 },
-  { id: 'crystal', name: 'Плащ «Аметист»', icon: 'gift', rarity: 'Легендарный', tone: 'var(--realm-sky)', hex: '#b39bff', price: 990, rank: 'zenith' },
-  { id: 'night', name: 'Плащ «Полночь»', icon: 'clock', rarity: 'Обычный', tone: 'var(--ink-2)', hex: '#6e757c', price: 150 },
-  { id: 'star', name: 'Плащ «Звездопад»', icon: 'sparkle', rarity: 'Ивентовый', tone: 'var(--luma-ink)', hex: '#e8edf1', locked: true },
-];
 
 // Emotecraft's built-in emotes (the jar ships these nine); the wheel opens on X in game.
 const EMOTES = [
@@ -26,20 +17,6 @@ const EMOTES = [
   { id: 'roblox_potion_dance', name: 'Танец с зельем', icon: 'gem' },
 ];
 
-/** A 64×32 cape texture in one light: dark cloth, a lit stepped hem and a small mark. */
-function capeTexture(hex) {
-  const c = document.createElement('canvas');
-  c.width = 64; c.height = 32;
-  const x = c.getContext('2d');
-  x.fillStyle = '#15171a'; x.fillRect(0, 0, 22, 17);
-  x.fillStyle = '#23272e'; x.fillRect(1, 1, 10, 16);
-  x.fillStyle = hex;
-  [[4, 3, 2, 1], [3, 4, 4, 1], [2, 5, 6, 1], [3, 6, 4, 1], [4, 7, 2, 1]].forEach(([a, b, w, h]) => x.fillRect(1 + a, 1 + b, w, h));
-  for (let r = 0; r < 4; r++) { const w = 4 + r * 2; x.fillRect(1 + (10 - w) / 2, 13 + r, w, 1); }
-  x.globalAlpha = 0.35; x.fillRect(12, 1, 10, 16); x.globalAlpha = 1;
-  x.fillStyle = '#15171a'; x.fillRect(12, 1, 10, 3);
-  return c.toDataURL('image/png');
-}
 
 /** Ely.by can still serve legacy 64×32 skins; the viewer needs 64×64 — mirror the right limbs onto the left. */
 function normalizeSkin(dataUri) {
@@ -68,9 +45,12 @@ export default function Wardrobe({ settings, update, notify }) {
   const [emote, setEmote] = useState('waving');
   const [elySkin, setElySkin] = useState(null);
   const [elyLoading, setElyLoading] = useState(true);
-  const it = CAPES.find((c) => c.id === sel) || CAPES[0];
-  const capeTex = useMemo(() => (sel === 'luma' ? defaultCape() : capeTexture(it.hex)), [sel]);
+  const it = CAPES.find((c) => c.id === sel) || null;
+  const capeTex = useMemo(() => (it ? capeImage(it.id) : false), [sel]);
   const worn = settings.cape || 'luma';
+  const pet = settings.pet || 'none';
+  const [petSel, setPetSel] = useState(pet === 'none' ? PETS[0].id : pet);
+  const petIt = PETS.find((p) => p.id === petSel) || PETS[0];
   const mcName = (settings.mc && settings.mc.name) || settings.profile.name;
 
   // The same cached skin as the player's head in the title bar, so both always match.
@@ -119,7 +99,7 @@ export default function Wardrobe({ settings, update, notify }) {
       </section>
       <section className="wr-shop">
         <Tabs size="sm" value={tab} onChange={setTab}
-          items={[{ id: 'skins', label: 'Скин', icon: 'shirt' }, { id: 'capes', label: 'Плащи', icon: 'sparkle', count: CAPES.length }, { id: 'emotes', label: 'Эмоции', icon: 'bolt', count: EMOTES.length }, { id: 'pets', label: 'Питомцы', icon: 'gift' }]} />
+          items={[{ id: 'skins', label: 'Скин', icon: 'shirt' }, { id: 'capes', label: 'Плащи', icon: 'sparkle', count: CAPES.length }, { id: 'emotes', label: 'Эмоции', icon: 'bolt', count: EMOTES.length }, { id: 'pets', label: 'Питомцы', icon: 'gift', count: PETS.length }]} />
         {tab === 'skins' ? (
           <div className="wr-panel">
             <div className="title">Твой скин — с Ely.by</div>
@@ -149,32 +129,48 @@ export default function Wardrobe({ settings, update, notify }) {
             </div>
           </>
         ) : null}
-        {tab === 'pets' ? (
-          <div className="wr-panel">
-            <div className="title">Питомцы — в следующем обновлении</div>
-            <p className="body">Маленький питомец, который ходит за тобой и виден всем на сервере. Делаем его вместе с настоящими плащами в игре.</p>
+        {tab === 'pets' ? (<>
+          <div className="wr-grid">
+            {PETS.map((x) => (
+              <button key={x.id} type="button" className={'wr-item' + (petSel === x.id ? ' is-on' : '')} style={{ '--tone': x.tone }} onClick={() => setPetSel(x.id)}>
+                <span className="wr-slot"><Icon name="gift" size={36} /></span>
+                <span className="wr-item-name">{x.name}</span>
+                <span className="wr-item-meta">{pet === x.id ? 'С тобой' : 'в игре'}</span>
+              </button>
+            ))}
           </div>
-        ) : null}
+          <div className="wr-detail">
+            <div>
+              <div className="wr-detail-name"><span className="title">{petIt.name}</span></div>
+              <div className="caption">Ходит рядом и виден всем на сервере. Прячется, когда ты крадёшься, — засаду не выдаст.</div>
+            </div>
+            <span className="wr-detail-actions">
+              {pet !== 'none' ? <Button variant="ghost" onClick={() => { update({ pet: 'none' }); notify({ icon: 'gift', title: 'Питомец остался дома', body: 'Со следующего «Играть».' }); }}>Без питомца</Button> : null}
+              {pet === petIt.id ? <Button variant="luma" icon="check" disabled>С тобой</Button> : <Button variant="luma" icon="gift" onClick={() => { update({ pet: petIt.id }); notify({ icon: 'gift', title: petIt.name + ' с тобой', body: 'В игре — со следующего «Играть».' }); }}>Взять</Button>}
+            </span>
+          </div>
+        </>) : null}
         {tab === 'capes' ? (<>
         <div className="wr-grid">
           {CAPES.map((x) => (
-            <button key={x.id} type="button" className={'wr-item' + (sel === x.id ? ' is-on' : '') + (x.locked ? ' is-locked' : '')} style={{ '--tone': x.tone }} onClick={() => setSel(x.id)}>
-              <span className="wr-slot"><Icon name={x.locked ? 'lock' : x.icon} size={36} /></span>
+            <button key={x.id} type="button" className={'wr-item' + (sel === x.id ? ' is-on' : '')} style={{ '--tone': x.tone }} onClick={() => setSel(x.id)}>
+              <span className="wr-slot"><Icon name={x.icon} size={36} /></span>
               <span className="wr-item-name">{x.name}</span>
-              <span className="wr-item-meta">{x.owned ? (worn === x.id ? 'Надето' : 'Есть') : x.locked ? 'Ивент' : <><Icon name="gem" size={12} /><span className="lm-led">{x.price}</span></>}</span>
+              <span className="wr-item-meta">{worn === x.id ? 'Надето' : x.rarity}</span>
             </button>
           ))}
+          <button type="button" className={'wr-item' + (sel === 'none' ? ' is-on' : '')} style={{ '--tone': 'var(--ink-3)' }} onClick={() => setSel('none')}>
+            <span className="wr-slot"><Icon name="close" size={36} /></span>
+            <span className="wr-item-name">Без плаща</span>
+            <span className="wr-item-meta">{worn === 'none' ? 'Надето' : 'плащ с Ely.by, если есть'}</span>
+          </button>
         </div>
         <div className="wr-detail">
           <div>
-            <div className="wr-detail-name"><span className="title">{it.name}</span>{it.rank ? <RankBadge rank={it.rank} size="sm" /> : null}</div>
-            <div className="caption wr-rarity" style={{ '--tone': it.tone }}><i />{it.rarity}{it.owned ? ' · в коллекции' : ''}</div>
+            <div className="wr-detail-name"><span className="title">{it ? it.name : 'Без плаща'}</span></div>
+            <div className="caption">{it ? 'Его видят все игроки на сервере — и на элитрах тоже.' : 'Будет виден твой плащ с Ely.by, если он у тебя есть.'}</div>
           </div>
-          {it.owned ? (
-            worn === it.id ? <Button variant="luma" icon="check" disabled>Надето</Button> : <Button variant="luma" icon="shirt" onClick={() => update({ cape: it.id })}>Надеть</Button>
-          ) : it.locked ? <Button icon="lock" disabled>Недоступно</Button> : (
-            <Button variant="luma" icon="gem" onClick={() => notify({ icon: 'gem', title: 'Примерка', body: it.name + ' за ' + it.price + ' люменов — покупка заработает с магазином сервера.' })}>Купить · {it.price}</Button>
-          )}
+          {worn === sel ? <Button variant="luma" icon="check" disabled>Надето</Button> : <Button variant="luma" icon="shirt" onClick={() => { update({ cape: sel }); notify({ icon: 'shirt', title: it ? it.name + ' надет' : 'Плащ снят', body: 'В игре — со следующего «Играть».' }); }}>{it ? 'Надеть' : 'Снять плащ'}</Button>}
         </div>
         </>) : null}
       </section>

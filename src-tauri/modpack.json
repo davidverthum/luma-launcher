@@ -330,6 +330,17 @@
    "size": 446612,
    "page": "https://github.com/davidverthum/luma-launcher/tree/main/menu-mod",
    "description": "Своё главное меню игры: подключиться к серверу, настройки, моды"
+  },
+  {
+   "slug": "luma-cosmetics",
+   "name": "Luma Cosmetics",
+   "version": "1.0.0",
+   "file": "luma-cosmetics-1.0.0.jar",
+   "url": "https://github.com/davidverthum/luma-launcher/releases/download/cosmetics-v1.0.0/luma-cosmetics-1.0.0.jar",
+   "sha512": "f1f32f63c5be473541369af1ed1f51e87cfd0e3bddb85001b4e5770be01c9952d9479c98088ad0603c1bb0ac0ba9253493d4e9054698c5ff2e49a833ab196122",
+   "size": 24974,
+   "page": "https://github.com/davidverthum/luma-launcher/tree/main/cosmetics-mod",
+   "description": "Плащи и питомцы из гардероба Luma — их видят все на сервере"
   }
  ],
  "optional": [

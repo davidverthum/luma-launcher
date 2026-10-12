@@ -396,7 +396,19 @@ fn classpath(libs: &[PathBuf], client_jar: &Path) -> String {
 /// runtime, so players never install anything — and starts the game, handing it an Ely.by
 /// session through authlib-injector instead of a Microsoft login. Never blocks on the game
 /// process — once it's spawned, this returns.
-pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Path, accent: Option<&str>) -> Result<(), String> {
+fn look_id(v: Option<&str>) -> Option<&str> {
+    v.filter(|a| !a.is_empty() && a.len() <= 32 && a.chars().all(|c| c.is_ascii_lowercase()))
+}
+
+/// What the launcher passes to our own mods: the accent (Luma Menu) and the cape and pet (Luma Cosmetics).
+#[derive(Default)]
+pub struct Look<'a> {
+    pub accent: Option<&'a str>,
+    pub cape: Option<&'a str>,
+    pub pet: Option<&'a str>,
+}
+
+pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Path, look: &Look<'_>) -> Result<(), String> {
     let client = game::http()?;
     let pack: &Modpack = game::modpack();
 
@@ -444,8 +456,15 @@ pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Pa
     // For the game's own title screen (menu-mod): which server to join, in which accent.
     jvm_args.push(format!("-Dluma.server={}", pack.server.address));
     jvm_args.push(format!("-Dluma.server.name={}", pack.server.name));
-    if let Some(accent) = accent.filter(|a| !a.is_empty() && a.chars().all(|c| c.is_ascii_lowercase())) {
+    // Ids only (lowercase letters): nothing from settings.json ever becomes a free-form JVM argument.
+    if let Some(accent) = look_id(look.accent) {
         jvm_args.push(format!("-Dluma.accent={accent}"));
+    }
+    if let Some(cape) = look_id(look.cape) {
+        jvm_args.push(format!("-Dluma.cape={cape}"));
+    }
+    if let Some(pet) = look_id(look.pet) {
+        jvm_args.push(format!("-Dluma.pet={pet}"));
     }
     let game_args = collect_args(&merged["arguments"]["game"], &map);
     let main_class = merged["mainClass"].as_str().ok_or("в версии нет mainClass")?;
@@ -479,4 +498,19 @@ pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Pa
         }
     });
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn look_ids_are_plain_lowercase_words() {
+        assert_eq!(look_id(Some("neon")), Some("neon"));
+        assert_eq!(look_id(Some("")), None);
+        assert_eq!(look_id(None), None);
+        for bad in ["neon -Dx=1", "Neon", "fox\n", "../x", "a_b", "x".repeat(33).as_str()] {
+            assert_eq!(look_id(Some(bad)), None, "{bad}");
+        }
+    }
 }

@@ -8,3 +8,5 @@ src-tauri/gen/
 .DS_Store
 menu-mod/.gradle/
 menu-mod/build/
+cosmetics-mod/.gradle/
+cosmetics-mod/build/

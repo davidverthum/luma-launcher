@@ -1,0 +1,43 @@
+// Luma Cosmetics — capes and pets picked in the launcher, shown to everyone on the server.
+// Build: gradlew build → build/libs/luma-cosmetics-<version>.jar; the launcher ships it like any
+// other mod (modpack.json), and the same jar goes on the server.
+plugins {
+	id 'fabric-loom' version '1.10.5'
+}
+
+version = project.mod_version
+group = 'gg.luma'
+
+base {
+	archivesName = 'luma-cosmetics'
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+}
+
+processResources {
+	inputs.property 'version', project.version
+	filesMatching('fabric.mod.json') {
+		expand 'version': project.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+	it.options.encoding = 'UTF-8'
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+// The same source gives the same bytes, so a rebuild can be checked against modpack.json's sha512.
+tasks.withType(AbstractArchiveTask).configureEach {
+	preserveFileTimestamps = false
+	reproducibleFileOrder = true
+}

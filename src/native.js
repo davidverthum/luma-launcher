@@ -142,9 +142,9 @@ export function elyRefresh(accessToken, clientToken) {
 
 /** Syncs mods, then launches Minecraft directly with the given Ely.by session. `accent` (an
  * accent.js id) colors the game's own title screen; none — lime. */
-export function playDirect(ramGb, session, accent = null, optional = []) {
+export function playDirect(ramGb, session, accent = null, optional = [], look = {}) {
   if (!inTauri) return Promise.reject(new Error('Это браузерная версия — скачай Luma для своей системы.'));
-  return invoke('play_direct', { ramGb, session, accent, optional });
+  return invoke('play_direct', { ramGb, session, accent, optional, cape: look.cape || null, pet: look.pet || null });
 }
 
 /** Mods the player can switch on in Settings (not part of everyone's download). */
