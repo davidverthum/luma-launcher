@@ -108,6 +108,7 @@ export default function Wardrobe({ settings, update, notify }) {
       <section className="wr-shop">
         <Tabs size="sm" value={tab} onChange={setTab}
           items={[{ id: 'skins', label: 'Скин', icon: 'shirt' }, { id: 'capes', label: 'Плащи', icon: 'sparkle', count: CAPES.length }, { id: 'emotes', label: 'Эмоции', icon: 'bolt', count: EMOTES.length }, { id: 'pets', label: 'Питомцы', icon: 'gift', count: PETS.length }]} />
+        <div className="wr-shop-body">
         {tab === 'skins' ? (
           <div className="wr-panel">
             <div className="title">Твой скин — с Ely.by</div>
@@ -181,6 +182,7 @@ export default function Wardrobe({ settings, update, notify }) {
           {worn === sel ? <Button variant="luma" icon="check" disabled>Надето</Button> : <Button variant="luma" icon="shirt" onClick={() => { wear({ cape: sel }); notify({ icon: 'shirt', title: it ? it.name + ' надет' : 'Плащ снят', body: INSTANT }); }}>{it ? 'Надеть' : 'Снять плащ'}</Button>}
         </div>
         </>) : null}
+        </div>
       </section>
     </div>
   );

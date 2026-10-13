@@ -303,7 +303,16 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 .wr-skin-name { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); }
 .wr-skin-actions { display: inline-flex; gap: 6px; }
 .wr-shop { display: flex; flex-direction: column; gap: 16px; margin: 16px 16px 24px 0; padding: 20px; border-radius: var(--radius-xl); background: var(--glass-strong);
-  -webkit-backdrop-filter: blur(var(--blur-strong)); backdrop-filter: blur(var(--blur-strong)); box-shadow: var(--glass-highlight), var(--shadow-2); min-height: 0; overflow: auto; }
+  -webkit-backdrop-filter: blur(var(--blur-strong)); backdrop-filter: blur(var(--blur-strong)); box-shadow: var(--glass-highlight), var(--shadow-2); min-height: 0; overflow: hidden; }
+/* Only the grid scrolls: the tabs stay on top at full width, the chosen item and its button at the bottom. */
+.wr-shop-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 16px; }
+.wr-shop-body > .wr-grid { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.wr-shop-body > .wr-detail { flex: none; }
+/* Four tabs with counts are wider than the panel: stretch them across it and let them give way,
+   so they never push the panel into a sideways scroll. */
+.wr-shop > .lm-tabs { display: flex; width: 100%; }
+.wr-shop .lm-tab { flex: 1 1 auto; justify-content: center; min-width: 0; gap: 6px; padding: 0 8px; }
+.wr-shop .lm-tab > span:not(.lm-tab-count) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .wr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .wr-panel { display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: var(--radius-lg, 14px); background: var(--surface-2); }
 .wr-panel .body { margin: 0; color: var(--ink-2); }
@@ -437,6 +446,7 @@ input, textarea { user-select: text; -webkit-user-select: text; }
   .bento { grid-template-columns: 1.4fr 1fr 1fr; }
   .ranks-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wardrobe { grid-template-columns: minmax(0, 1fr) 420px; }
+  .wr-shop .lm-tab-count { display: none; }
 }
 
 /* ---------- real server cards (home, server page) ---------- */
