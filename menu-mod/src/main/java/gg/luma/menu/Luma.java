@@ -2,6 +2,10 @@ package gg.luma.menu;
 
 import java.util.Map;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.text.Text;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.option.ServerList;
 
@@ -28,6 +32,9 @@ final class Luma {
 	static final int LINE = 0xFF2A2F35;
 	static final int OFFLINE = 0xFF6E757C;
 	static final int AWAY = 0xFFFFC24D;
+	static final int DANGER = 0xFFF5453A;
+	/** The server's web map (BlueMap), from the launcher (-Dluma.map); none — no map button. */
+	static final String MAP = System.getProperty("luma.map", "");
 
 	private Luma() {
 	}
@@ -54,6 +61,23 @@ final class Luma {
 			}
 		}
 		return new ServerInfo(name, address, ServerInfo.ServerType.OTHER);
+	}
+
+	/** Mod Menu's list, when it's installed; otherwise the button just does nothing. */
+	static void openMods(MinecraftClient client, Screen parent) {
+		try {
+			Class<?> screen = Class.forName("com.terraformersmc.modmenu.gui.ModsScreen");
+			client.setScreen((Screen) screen.getConstructor(Screen.class).newInstance(parent));
+		} catch (ReflectiveOperationException | LinkageError | ClassCastException e) {
+			// A Mod Menu without that screen.
+		}
+	}
+
+	/** The small line over a heading: a lit pixel mark and caps, like the launcher's overlines. */
+	static void kicker(DrawContext ctx, TextRenderer font, Text text, int x, int y) {
+		LumaButton.stepped(ctx, x, y, 7, 7, ACCENT);
+		ctx.fill(x + 2, y + 2, x + 5, y + 5, ON_ACCENT);
+		ctx.drawText(font, text, x + 12, y, INK_2, false);
 	}
 
 	static int mix(int a, int b, float t) {

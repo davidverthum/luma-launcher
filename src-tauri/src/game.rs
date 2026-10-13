@@ -39,6 +39,9 @@ pub struct ServerInfo {
     /// RCON port on the same host, for the admin panel; None until the server has RCON on.
     #[serde(default)]
     pub rcon: Option<u16>,
+    /// The web map (BlueMap): the launcher's «Карта» tab and the game's pause menu.
+    #[serde(default)]
+    pub map: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]

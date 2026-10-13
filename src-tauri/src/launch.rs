@@ -396,20 +396,36 @@ fn look_id(v: Option<&str>) -> Option<&str> {
     v.filter(|a| !a.is_empty() && a.len() <= 32 && a.chars().all(|c| c.is_ascii_lowercase()))
 }
 
-/// What the launcher passes to our own mods: the accent (Luma Menu) and the cape and pet (Luma Cosmetics).
+/// What the launcher passes to our own mods: the accent (Luma Menu); the cape, pet, title, name
+/// color and trail (Luma Cosmetics).
 #[derive(Default)]
 pub struct Look<'a> {
     pub accent: Option<&'a str>,
     pub cape: Option<&'a str>,
     pub pet: Option<&'a str>,
+    pub title: Option<&'a str>,
+    pub color: Option<&'a str>,
+    pub trail: Option<&'a str>,
 }
 
-/// The wardrobe's pick for Luma Cosmetics, which rereads it every couple of seconds — so a cape
-/// or pet changed while the game runs shows up without a restart. Anything that isn't a plain
-/// id is written as «none».
-pub fn write_look(instance: &Path, cape: Option<&str>, pet: Option<&str>) -> Result<(), String> {
-    let json = serde_json::json!({ "cape": look_id(cape).unwrap_or(""), "pet": look_id(pet).unwrap_or("") });
+/// The wardrobe's pick for Luma Cosmetics, which rereads it every couple of seconds — so a change
+/// while the game runs shows up without a restart. Anything that isn't a plain id is written as «none».
+pub fn write_look(instance: &Path, look: &Look) -> Result<(), String> {
+    let json = serde_json::json!({
+        "cape": look_id(look.cape).unwrap_or(""),
+        "pet": look_id(look.pet).unwrap_or(""),
+        "title": look_id(look.title).unwrap_or(""),
+        "color": look_id(look.color).unwrap_or(""),
+        "trail": look_id(look.trail).unwrap_or(""),
+    });
     game::write_atomic(&instance.join("config").join("luma-cosmetics.json"), json.to_string().as_bytes())
+}
+
+/// The player's statistics as Luma Cosmetics last saved them (config/luma-stats.json): their own
+/// numbers and the server's leaderboard. None until they've played on the server with that mod.
+pub fn read_stats(instance: &Path) -> Option<serde_json::Value> {
+    let text = std::fs::read_to_string(instance.join("config").join("luma-stats.json")).ok()?;
+    serde_json::from_str::<serde_json::Value>(&text).ok().filter(|v| v.is_object())
 }
 
 /// Downloads everything a direct launch needs — including Java itself, Mojang's own managed
@@ -464,6 +480,10 @@ pub async fn play(app: &AppHandle, ram_gb: u32, session: &Session, instance: &Pa
     // For the game's own title screen (menu-mod): which server to join, in which accent.
     jvm_args.push(format!("-Dluma.server={}", pack.server.address));
     jvm_args.push(format!("-Dluma.server.name={}", pack.server.name));
+    // The pause menu's «Карта сервера»; from modpack.json, which ships inside the launcher.
+    if let Some(map) = pack.server.map.as_deref().filter(|m| m.starts_with("http") && !m.contains(char::is_whitespace)) {
+        jvm_args.push(format!("-Dluma.map={map}"));
+    }
     // Ids only (lowercase letters): nothing from settings.json ever becomes a free-form JVM argument.
     if let Some(accent) = look_id(look.accent) {
         jvm_args.push(format!("-Dluma.accent={accent}"));
@@ -515,9 +535,22 @@ mod tests {
     #[test]
     fn look_file_holds_only_plain_ids() {
         let dir = std::env::temp_dir().join(format!("luma-look-{}", std::process::id()));
-        write_look(&dir, Some("neon"), Some("../x")).unwrap();
+        let look = Look { cape: Some("neon"), pet: Some("../x"), title: Some("miner"), color: Some("Violet"), trail: Some("sparks"), ..Default::default() };
+        write_look(&dir, &look).unwrap();
         let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir.join("config/luma-cosmetics.json")).unwrap()).unwrap();
-        assert_eq!(v, serde_json::json!({ "cape": "neon", "pet": "" }));
+        assert_eq!(v, serde_json::json!({ "cape": "neon", "pet": "", "title": "miner", "color": "", "trail": "sparks" }));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn stats_file_read_when_valid() {
+        let dir = std::env::temp_dir().join(format!("luma-stats-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("config")).unwrap();
+        assert_eq!(read_stats(&dir), None);
+        std::fs::write(dir.join("config/luma-stats.json"), r#"{"me":{"name":"Rimfyy","playTicks":72000}}"#).unwrap();
+        assert_eq!(read_stats(&dir).unwrap()["me"]["playTicks"], 72000);
+        std::fs::write(dir.join("config/luma-stats.json"), "half a file {").unwrap();
+        assert_eq!(read_stats(&dir), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

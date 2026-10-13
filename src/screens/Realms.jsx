@@ -1,8 +1,60 @@
-import { RealmCard, Tag } from '../ds/index.js';
-import { modpack } from '../native.js';
+import { useEffect, useState } from 'react';
+import { RealmCard, Tag, Tabs, Icon, PlayerHead } from '../ds/index.js';
+import { modpack, gameStats } from '../native.js';
 
-export default function Realms({ realm, setRoute, server, copyAddress }) {
+// Minecraft counts time in ticks (20 a second) and travel in centimetres.
+const hours = (ticks) => ticks / 20 / 3600;
+const km = (cm) => cm / 100000;
+const fmt = (n, digits = 0) => n.toLocaleString('ru-RU', { maximumFractionDigits: digits, minimumFractionDigits: 0 });
+const short = (n) => (n >= 100 ? fmt(n) : fmt(n, 1));
+
+const TILES = [
+  { id: 'time', label: 'наиграно', unit: 'ч', icon: 'clock', value: (m) => short(hours(m.playTicks)) },
+  { id: 'km', label: 'пройдено', unit: 'км', icon: 'globe', value: (m) => short(km(m.distanceCm)) },
+  { id: 'diamonds', label: 'алмазов добыто', icon: 'gem', value: (m) => fmt(m.diamonds) },
+  { id: 'mobs', label: 'мобов побеждено', icon: 'bolt', value: (m) => fmt(m.mobKills) },
+  { id: 'blocks', label: 'блоков добыто', icon: 'block', value: (m) => fmt(m.blocksMined || 0) },
+  { id: 'deaths', label: 'смертей', icon: 'close', value: (m) => fmt(m.deaths) },
+];
+
+const BOARDS = [
+  { id: 'time', label: 'Время', icon: 'clock', key: (e) => e.playTicks, show: (e) => short(hours(e.playTicks)) + ' ч' },
+  { id: 'diamonds', label: 'Алмазы', icon: 'gem', key: (e) => e.diamonds, show: (e) => fmt(e.diamonds) },
+  { id: 'km', label: 'Путь', icon: 'globe', key: (e) => e.distanceCm, show: (e) => short(km(e.distanceCm)) + ' км' },
+  { id: 'mobs', label: 'Мобы', icon: 'bolt', key: (e) => e.mobKills, show: (e) => fmt(e.mobKills) },
+];
+
+function ago(ms) {
+  if (!ms) return '';
+  const min = Math.round((Date.now() - ms) / 60000);
+  if (min < 1) return 'только что';
+  if (min < 60) return min + ' мин назад';
+  if (min < 24 * 60) return Math.round(min / 60) + ' ч назад';
+  return new Date(ms).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+}
+
+/** The player's numbers and the server's leaderboard, as the game (Luma Cosmetics) last saved them. */
+function useGameStats() {
+  const [stats, setStats] = useState(undefined);
+  useEffect(() => {
+    let alive = true;
+    const load = () => gameStats().then((s) => { if (alive) setStats(s); }).catch(() => { if (alive) setStats(null); });
+    load();
+    const id = setInterval(load, 30000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  return stats;
+}
+
+export default function Realms({ realm, setRoute, server, copyAddress, settings }) {
   const online = server && server.online;
+  const stats = useGameStats();
+  const [board, setBoard] = useState('time');
+  const me = stats && stats.me;
+  const myName = me ? me.name : (settings && settings.mc && settings.mc.name) || '';
+  const sort = BOARDS.find((b) => b.id === board) || BOARDS[0];
+  const rows = stats && Array.isArray(stats.board) ? [...stats.board].sort((a, b) => sort.key(b) - sort.key(a)).slice(0, 10) : [];
+
   return (
     <div className="page">
       <header className="page-head">
@@ -13,6 +65,48 @@ export default function Realms({ realm, setRoute, server, copyAddress }) {
         </div>
         <Tag tone="luma" icon="users">{online ? server.players + ' из ' + server.max + ' онлайн' : server ? 'сервер не отвечает' : 'проверяем…'}</Tag>
       </header>
+
+      <div className="stats-row">
+        <section className="hcard stats-me">
+          <div className="hcard-head"><span className="overline">Твоя статистика</span>{me ? <span className="caption">обновлено {ago(stats.updated)}</span> : null}</div>
+          {me ? (
+            <div className="stats-tiles">
+              {TILES.map((t) => (
+                <div key={t.id} className="stats-tile">
+                  <Icon name={t.icon} size={16} />
+                  <span className="stats-value">{t.value(me)}{t.unit ? <small> {t.unit}</small> : null}</span>
+                  <span className="caption">{t.label}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="body stats-empty">{stats === undefined ? 'Загружаем…' : 'Появится, когда поиграешь на сервере: игра раз в минуту сохраняет её для лаунчера.'}</p>
+          )}
+        </section>
+
+        <section className="hcard stats-board">
+          <div className="hcard-head">
+            <span className="overline">Лидеры сервера</span>
+            {rows.length ? <span className="caption">обновлено {ago(stats.boardUpdated)}</span> : null}
+          </div>
+          <Tabs size="sm" value={board} onChange={setBoard} items={BOARDS.map((b) => ({ id: b.id, label: b.label, icon: b.icon }))} />
+          {rows.length ? (
+            <ol className="board-list">
+              {rows.map((e, i) => (
+                <li key={e.name} className={'board-row' + (e.name.toLowerCase() === myName.toLowerCase() ? ' is-me' : '')}>
+                  <span className={'board-rank' + (i < 3 ? ' is-top' : '')}>{i + 1}</span>
+                  <PlayerHead name={e.name} size={24} />
+                  <span className="board-name">{e.name}</span>
+                  <span className="board-value">{sort.show(e)}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="body stats-empty">{stats === undefined ? 'Загружаем…' : 'Таблица придёт с сервера, когда ты на него зайдёшь, и дальше будет обновляться раз в пять минут.'}</p>
+          )}
+        </section>
+      </div>
+
       <div className="realms-grid realms-grid--one">
         <RealmCard realm={realm} selected friends={(server && server.sample) || []} seed={3} onSelect={() => setRoute('home')} />
         <div className="realm-facts">

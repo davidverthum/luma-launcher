@@ -308,6 +308,28 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 .wr-shop-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 16px; }
 .wr-shop-body > .wr-grid { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .wr-shop-body > .wr-detail { flex: none; }
+/* «Стиль»: title, name color and trail, each applied at once. */
+.wr-style { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.wr-style-part { display: flex; flex-direction: column; gap: 10px; }
+.wr-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wr-chip { height: 32px; padding: 0 12px; border: 0; border-radius: var(--radius-sm); background: var(--surface-3); color: var(--ink); font: 600 13px/16px var(--font-text); cursor: pointer;
+  transition: background var(--lm-t-fast), color var(--lm-t-fast), box-shadow var(--lm-t-fast); }
+.wr-chip:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.wr-chip.is-on { background: var(--luma); color: var(--on-luma); box-shadow: 0 6px 18px -8px var(--luma); }
+.wr-chip:focus-visible, .wr-color:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.wr-colors { display: flex; flex-wrap: wrap; gap: 8px; }
+.wr-color { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-sm); background: var(--sw); color: #0a0c05; cursor: pointer;
+  box-shadow: 0 6px 16px -8px var(--sw); transition: transform var(--lm-t) var(--lm-spring), box-shadow var(--lm-t); }
+.wr-color:hover { transform: translateY(-2px); }
+.wr-color.is-on { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--sw); }
+.wr-slot--sm { width: 56px; height: 56px; }
+.wr-style-note { margin: 0; color: var(--ink-2); }
+/* What others see over your head in game: a Minecraft name tag. */
+.wr-model { position: relative; }
+.wr-nameplate { position: absolute; top: 4%; left: 50%; transform: translateX(-50%); z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; pointer-events: none; }
+.wr-nameplate > span { padding: 2px 8px; background: rgb(0 0 0 / .42); color: #f3f5f0; font: 600 15px/20px var(--font-mono); white-space: nowrap; }
+.wr-nameplate > .wr-nameplate-title { color: #a9afa6; font-size: 13px; line-height: 18px; }
+.wr-nameplate-crown { margin-right: 8px; color: #ffb547; }
 /* Four tabs with counts are wider than the panel: stretch them across it and let them give way,
    so they never push the panel into a sideways scroll. */
 .wr-shop > .lm-tabs { display: flex; width: 100%; }
@@ -446,7 +468,6 @@ input, textarea { user-select: text; -webkit-user-select: text; }
   .bento { grid-template-columns: 1.4fr 1fr 1fr; }
   .ranks-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wardrobe { grid-template-columns: minmax(0, 1fr) 420px; }
-  .wr-shop .lm-tab-count { display: none; }
 }
 
 /* ---------- real server cards (home, server page) ---------- */
@@ -489,6 +510,25 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 .side-chart .lm-spark { width: 100%; height: 40px; }
 .realms-grid--one { grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); align-items: start; }
 .realm-facts { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* Server page: your numbers and the leaderboard, from the game (Luma Cosmetics). */
+.stats-row { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; }
+.stats-row .hcard { background: var(--surface-2); border-radius: var(--radius-lg); box-shadow: inset 0 0 0 1px var(--line); gap: 14px; }
+.stats-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stats-tile { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: var(--radius-md); background: var(--surface-3); color: var(--ink-2); }
+.stats-tile .lm-icon { color: var(--luma-ink); }
+.stats-value { font: 800 26px/1.1 var(--font-display); color: var(--ink); letter-spacing: -0.01em; }
+.stats-value small { font: 700 14px/1 var(--font-text); color: var(--ink-2); }
+.stats-empty { margin: 0; color: var(--ink-2); }
+.stats-board .lm-tabs { display: flex; width: 100%; }
+.stats-board .lm-tab { flex: 1 1 auto; justify-content: center; min-width: 0; padding: 0 8px; }
+.board-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.board-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: var(--radius-sm); }
+.board-row.is-me { background: var(--luma-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--luma) 30%, transparent); }
+.board-rank { width: 22px; flex: none; text-align: center; font: 800 13px/1 var(--font-text); color: var(--ink-3); }
+.board-rank.is-top { color: var(--luma-ink); }
+.board-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 14px/18px var(--font-text); }
+.board-value { flex: none; font: 700 14px/18px var(--font-text); color: var(--ink); font-variant-numeric: tabular-nums; }
+@media (max-width: 1180px) { .stats-row { grid-template-columns: 1fr; } }
 @media (max-width: 1180px) { .realms-grid--one { grid-template-columns: 1fr; } }
 
 .app-toasts .lm-toast-body { overflow-wrap: anywhere; }

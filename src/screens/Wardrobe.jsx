@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SkinViewer, Tabs, Button, Tag, Icon } from '../ds/index.js';
-import { CAPES, PETS, capeImage } from '../cosmetics.js';
-import { skinFor, openElySkins, onElyClosed, setLook } from '../native.js';
+import { CAPES, PETS, TITLES, NAME_COLORS, TRAILS, capeImage, lookOf } from '../cosmetics.js';
+import { skinFor, openElySkins, onElyClosed, setLook, isAdmin } from '../native.js';
 
 
 // Luma Cosmetics rereads the pick every couple of seconds, so a running game changes too.
@@ -55,10 +55,13 @@ export default function Wardrobe({ settings, update, notify }) {
   const [petSel, setPetSel] = useState(pet === 'none' ? PETS[0].id : pet);
   const petIt = PETS.find((p) => p.id === petSel) || PETS[0];
   const mcName = (settings.mc && settings.mc.name) || settings.profile.name;
+  const titleIt = TITLES.find((t) => t.id === settings.title) || null;
+  const colorIt = NAME_COLORS.find((c) => c.id === settings.nameColor) || null;
+  // The server gives operators the crown; the launcher's admin list is its best guess.
+  const admin = isAdmin(mcName);
   const wear = (patch) => {
     update(patch);
-    const next = { cape: settings.cape || 'luma', pet: settings.pet || 'none', ...patch };
-    setLook(next.cape, next.pet).catch(() => {});
+    setLook(lookOf({ ...settings, ...patch })).catch(() => {});
   };
 
   // The same cached skin as the player's head in the title bar, so both always match.
@@ -95,7 +98,15 @@ export default function Wardrobe({ settings, update, notify }) {
             ))}
           </div>
         </div>
-        <div className="wr-model"><SkinViewer scale={10} pose={pose} angle={-24} skin={elySkin || undefined} cape={capeTex} /></div>
+        <div className="wr-model">
+          <div className="wr-nameplate" aria-label="Так тебя видят в игре">
+            {titleIt ? <span className="wr-nameplate-title">{titleIt.name}</span> : null}
+            <span className="wr-nameplate-name" style={colorIt ? { color: colorIt.hex } : undefined}>
+              {admin ? <span className="wr-nameplate-crown">♛</span> : null}{mcName}
+            </span>
+          </div>
+          <SkinViewer scale={10} pose={pose} angle={-24} skin={elySkin || undefined} cape={capeTex} />
+        </div>
         <div className="wr-stage-foot">
           <span className="caption"><Icon name="arrow-left" size={12} /> Тяни, чтобы повернуть <Icon name="arrow-right" size={12} /></span>
           <span className="wr-skin-name"><span className="body-strong">{elyLoading ? 'Загружаем скин…' : elySkin ? 'Скин с Ely.by' : 'Скин по умолчанию'}</span><Tag tone="outline">64×64</Tag></span>
@@ -107,8 +118,49 @@ export default function Wardrobe({ settings, update, notify }) {
       </section>
       <section className="wr-shop">
         <Tabs size="sm" value={tab} onChange={setTab}
-          items={[{ id: 'skins', label: 'Скин', icon: 'shirt' }, { id: 'capes', label: 'Плащи', icon: 'sparkle', count: CAPES.length }, { id: 'emotes', label: 'Эмоции', icon: 'bolt', count: EMOTES.length }, { id: 'pets', label: 'Питомцы', icon: 'gift', count: PETS.length }]} />
+          items={[{ id: 'skins', label: 'Скин', icon: 'shirt' }, { id: 'capes', label: 'Плащи', icon: 'sparkle' }, { id: 'pets', label: 'Питомцы', icon: 'gift' }, { id: 'emotes', label: 'Эмоции', icon: 'bolt' }, { id: 'style', label: 'Стиль', icon: 'crown' }]} />
         <div className="wr-shop-body">
+        {tab === 'style' ? (
+          <div className="wr-style">
+            <section className="wr-style-part">
+              <div className="body-strong">Титул над ником</div>
+              <div className="wr-chips">
+                {[{ id: '', name: 'Без титула' }, ...TITLES].map((x) => (
+                  <button key={x.id || 'none'} type="button" className={'wr-chip' + ((settings.title || '') === x.id ? ' is-on' : '')} onClick={() => wear({ title: x.id || null })}>{x.name}</button>
+                ))}
+              </div>
+            </section>
+            <section className="wr-style-part">
+              <div className="body-strong">Цвет ника</div>
+              <div className="wr-colors">
+                {[{ id: '', name: 'Белый', hex: '#f3f5f0' }, ...NAME_COLORS].map((x) => {
+                  const on = (settings.nameColor || '') === x.id;
+                  return (
+                    <button key={x.id || 'none'} type="button" className={'wr-color' + (on ? ' is-on' : '')} style={{ '--sw': x.hex }} onClick={() => wear({ nameColor: x.id || null })} title={x.name} aria-label={x.name} aria-pressed={on}>
+                      {on ? <Icon name="check" size={12} /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+            <section className="wr-style-part">
+              <div className="body-strong">След за тобой</div>
+              <div className="wr-grid">
+                {[{ id: '', name: 'Без следа', icon: 'close', note: 'ничего' }, ...TRAILS].map((x) => (
+                  <button key={x.id || 'none'} type="button" className={'wr-item' + ((settings.trail || '') === x.id ? ' is-on' : '')} style={{ '--tone': x.id ? 'var(--luma-ink)' : 'var(--ink-3)' }} onClick={() => wear({ trail: x.id || null })}>
+                    <span className="wr-slot wr-slot--sm"><Icon name={x.icon} size={24} /></span>
+                    <span className="wr-item-name">{x.name}</span>
+                    <span className="wr-item-meta">{x.note}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+            <p className="caption wr-style-note">
+              Меняется сразу, в игре — через пару секунд. Видят все игроки на сервере с Luma.
+              {admin ? ' Корона ♛ у ника — потому что ты админ сервера.' : ''}
+            </p>
+          </div>
+        ) : null}
         {tab === 'skins' ? (
           <div className="wr-panel">
             <div className="title">Твой скин — с Ely.by</div>

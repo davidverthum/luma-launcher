@@ -10,7 +10,8 @@ import net.minecraft.text.Text;
 /** The launcher's buttons in the game: pixel-stepped corners; the primary one lit in the accent
  * with a dark «play» square, the rest dark with a thin frame. */
 final class LumaButton extends PressableWidget {
-	enum Style { PRIMARY, SECONDARY }
+	/** DANGER: a secondary button that lights up red — leaving the server. */
+	enum Style { PRIMARY, SECONDARY, DANGER }
 
 	private final Style style;
 	private final Runnable action;
@@ -42,9 +43,10 @@ final class LumaButton extends PressableWidget {
 				frame(ctx, x + 2, y + 2, w - 4, h - 4, Luma.ON_ACCENT);
 			}
 		} else {
-			stepped(ctx, x, y, w, h, hot ? Luma.ACCENT : Luma.LINE);
+			int light = style == Style.DANGER ? Luma.DANGER : Luma.ACCENT;
+			stepped(ctx, x, y, w, h, hot ? light : Luma.LINE);
 			stepped(ctx, x + 1, y + 1, w - 2, h - 2, hot ? Luma.SURFACE_HOT : Luma.SURFACE);
-			int color = hot ? Luma.ACCENT : Luma.INK;
+			int color = hot ? light : Luma.INK;
 			ctx.drawText(font, getMessage(), x + (w - font.getWidth(getMessage())) / 2, textY, color, false);
 		}
 	}

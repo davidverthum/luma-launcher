@@ -10,5 +10,18 @@
   "luma-menu.status.checking": "%s · checking the server…",
   "luma-menu.status.offline": "%s · the server isn't answering",
   "luma-menu.status.incompatible": "%s · a different game version",
-  "luma-menu.player": "Playing as %s"
+  "luma-menu.player": "Playing as %s",
+  "luma-menu.pause.kicker": "PAUSED · %s",
+  "luma-menu.pause.world": "SINGLEPLAYER",
+  "luma-menu.pause.back": "Back to game",
+  "luma-menu.pause.screenshots": "Screenshots",
+  "luma-menu.pause.advancements": "Advancements",
+  "luma-menu.pause.stats": "Statistics",
+  "luma-menu.pause.map": "Server map",
+  "luma-menu.pause.disconnect": "Disconnect",
+  "luma-menu.pause.save_quit": "Save and quit",
+  "luma-menu.pause.paused": "The world is paused",
+  "luma-menu.pause.online": "Players online: %s",
+  "luma-menu.pause.here": "On the server",
+  "luma-menu.pause.more": "and %s more"
 }

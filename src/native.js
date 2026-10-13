@@ -143,11 +143,15 @@ export function elyRefresh(accessToken, clientToken) {
 /** Syncs mods, then launches Minecraft directly with the given Ely.by session. `accent` (an
  * accent.js id) colors the game's own title screen; none — lime. */
 /** The wardrobe's cape and pet, for Luma Cosmetics — it rereads them in a running game too. */
-export const setLook = (cape, pet) => (inTauri ? invoke('set_look', { cape: cape || null, pet: pet || null }) : Promise.resolve());
+/** What the player wears in game ({ cape, pet, title, color, trail } — cosmetics.js lookOf). */
+export const setLook = (look) => (inTauri ? invoke('set_look', { cape: look.cape || null, pet: look.pet || null, title: look.title || null, color: look.color || null, trail: look.trail || null }) : Promise.resolve());
+
+/** The player's statistics and the server's leaderboard as the game last saved them (Luma Cosmetics), or null. */
+export const gameStats = () => (inTauri ? invoke('game_stats') : Promise.resolve(null));
 
 export function playDirect(ramGb, session, accent = null, optional = [], look = {}) {
   if (!inTauri) return Promise.reject(new Error('Это браузерная версия — скачай Luma для своей системы.'));
-  return invoke('play_direct', { ramGb, session, accent, optional, cape: look.cape || null, pet: look.pet || null });
+  return invoke('play_direct', { ramGb, session, accent, optional, cape: look.cape || null, pet: look.pet || null, title: look.title || null, color: look.color || null, trail: look.trail || null });
 }
 
 /** Mods the player can switch on in Settings (not part of everyone's download). */

@@ -314,22 +314,49 @@ async fn ely_skin(name: String) -> Result<Option<String>, String> {
 /// Syncs mods, then launches Minecraft directly (no official launcher) using an Ely.by
 /// session so non-premium accounts can join the server. Progress goes out as `luma://progress`.
 /// `accent`: the launcher's accent id, for the game's own title screen (Luma Menu);
-/// `cape` / `pet`: what the player wears in game (Luma Cosmetics).
+/// `cape` / `pet` / `title` / `color` / `trail`: what the player wears in game (Luma Cosmetics).
 #[tauri::command]
-async fn play_direct(app: AppHandle, ram_gb: u32, session: elyby::Session, accent: Option<String>, optional: Option<Vec<String>>, cape: Option<String>, pet: Option<String>) -> Result<(), String> {
+#[allow(clippy::too_many_arguments)]
+async fn play_direct(
+    app: AppHandle,
+    ram_gb: u32,
+    session: elyby::Session,
+    accent: Option<String>,
+    optional: Option<Vec<String>>,
+    cape: Option<String>,
+    pet: Option<String>,
+    title: Option<String>,
+    color: Option<String>,
+    trail: Option<String>,
+) -> Result<(), String> {
     let ram_gb = if ram_gb == 0 { auto_ram_gb() } else { ram_gb };
     let instance = game::instance_dir(&app)?;
     game::sync_mods(&app, game::modpack(), &instance, &optional.unwrap_or_default()).await?;
     mods::ensure_default_keys(&instance)?;
-    launch::write_look(&instance, cape.as_deref(), pet.as_deref())?;
-    let look = launch::Look { accent: accent.as_deref(), cape: cape.as_deref(), pet: pet.as_deref() };
+    let look = launch::Look {
+        accent: accent.as_deref(),
+        cape: cape.as_deref(),
+        pet: pet.as_deref(),
+        title: title.as_deref(),
+        color: color.as_deref(),
+        trail: trail.as_deref(),
+    };
+    launch::write_look(&instance, &look)?;
     launch::play(&app, ram_gb, &session, &instance, &look).await
 }
 
 /// The wardrobe changed: tell Luma Cosmetics, which picks it up in a running game too.
 #[tauri::command]
-fn set_look(app: AppHandle, cape: Option<String>, pet: Option<String>) -> Result<(), String> {
-    launch::write_look(&game::instance_dir(&app)?, cape.as_deref(), pet.as_deref())
+fn set_look(app: AppHandle, cape: Option<String>, pet: Option<String>, title: Option<String>, color: Option<String>, trail: Option<String>) -> Result<(), String> {
+    let look = launch::Look { cape: cape.as_deref(), pet: pet.as_deref(), title: title.as_deref(), color: color.as_deref(), trail: trail.as_deref(), ..Default::default() };
+    launch::write_look(&game::instance_dir(&app)?, &look)
+}
+
+/// The player's own statistics and the server's leaderboard, as the game last saved them; null
+/// until they've played on the server.
+#[tauri::command]
+fn game_stats(app: AppHandle) -> Result<Option<serde_json::Value>, String> {
+    Ok(launch::read_stats(&game::instance_dir(&app)?))
 }
 
 #[tauri::command]
@@ -559,6 +586,7 @@ pub fn run() {
             ely_skin,
             play_direct,
             set_look,
+            game_stats,
             list_shaders,
             list_local_mods,
             add_local_mod,

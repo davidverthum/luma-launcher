@@ -10,5 +10,18 @@
   "luma-menu.status.checking": "%s · проверяем сервер…",
   "luma-menu.status.offline": "%s · сервер не отвечает",
   "luma-menu.status.incompatible": "%s · другая версия игры",
-  "luma-menu.player": "Ты играешь как %s"
+  "luma-menu.player": "Ты играешь как %s",
+  "luma-menu.pause.kicker": "ПАУЗА · %s",
+  "luma-menu.pause.world": "ОДИНОЧНЫЙ МИР",
+  "luma-menu.pause.back": "Вернуться в игру",
+  "luma-menu.pause.screenshots": "Скриншоты",
+  "luma-menu.pause.advancements": "Достижения",
+  "luma-menu.pause.stats": "Статистика",
+  "luma-menu.pause.map": "Карта сервера",
+  "luma-menu.pause.disconnect": "Отключиться",
+  "luma-menu.pause.save_quit": "Сохранить и выйти",
+  "luma-menu.pause.paused": "Мир на паузе",
+  "luma-menu.pause.online": "Игроков на сервере: %s",
+  "luma-menu.pause.here": "На сервере",
+  "luma-menu.pause.more": "и ещё %s"
 }

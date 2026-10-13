@@ -1,6 +1,6 @@
-// Capes and pets that the Luma Cosmetics mod (cosmetics-mod/) shows in game. The ids are the
-// contract with the mod: it ships one cape texture per id here (made from capeTexture below) and
-// knows the same pet ids, and the server drops anything else.
+// Capes, pets, titles, name colors and trails that the Luma Cosmetics mod (cosmetics-mod/) shows in
+// game. The ids are the contract with the mod: it ships one cape texture per id here (made from
+// capeTexture below) and knows the same ids (Cosmetics.java), and the server drops anything else.
 import { defaultCape } from './ds/index.js';
 
 export const CAPES = [
@@ -24,6 +24,42 @@ export const PETS = [
   { id: 'rabbit', name: 'Крольчонок', tone: '#d8c3a5' },
   { id: 'chicken', name: 'Цыплёнок', tone: '#fff3b0' },
 ];
+
+// Shown above the name in game; the mod has the same words in its lang files.
+export const TITLES = [
+  { id: 'builder', name: 'Строитель' },
+  { id: 'miner', name: 'Шахтёр' },
+  { id: 'farmer', name: 'Фермер' },
+  { id: 'explorer', name: 'Путешественник' },
+  { id: 'cook', name: 'Повар' },
+  { id: 'warrior', name: 'Воин' },
+  { id: 'fisher', name: 'Рыбак' },
+  { id: 'trader', name: 'Торговец' },
+];
+
+// Name colors: the launcher's accents (accent.js), the same ids the mod knows.
+export const NAME_COLORS = [
+  { id: 'luma', name: 'Лайм', hex: '#d4ff3d' },
+  { id: 'mint', name: 'Мята', hex: '#3dffa8' },
+  { id: 'ice', name: 'Лёд', hex: '#4fe3ff' },
+  { id: 'violet', name: 'Аметист', hex: '#b39bff' },
+  { id: 'pink', name: 'Неон', hex: '#ff5fae' },
+  { id: 'lava', name: 'Лава', hex: '#ff6b3d' },
+  { id: 'amber', name: 'Янтарь', hex: '#ffb547' },
+];
+
+// Particles at the feet while walking; `icon` is from the launcher's icon set.
+export const TRAILS = [
+  { id: 'sparks', name: 'Искры', icon: 'sparkle', note: 'в цвет ника' },
+  { id: 'petals', name: 'Лепестки', icon: 'gift', note: 'вишнёвые' },
+  { id: 'snow', name: 'Снежинки', icon: 'clock', note: 'зимние' },
+  { id: 'notes', name: 'Ноты', icon: 'chat', note: 'разноцветные' },
+  { id: 'soul', name: 'Огонь душ', icon: 'bolt', note: 'голубой' },
+  { id: 'hearts', name: 'Сердечки', icon: 'crown', note: 'редкие' },
+];
+
+/** Everything the player wears in game, from settings — for setLook and «Играть». */
+export const lookOf = (s) => ({ cape: s.cape || 'luma', pet: s.pet || 'none', title: s.title || '', color: s.nameColor || '', trail: s.trail || '' });
 
 /** A 64×32 cape texture in one light: dark cloth, a lit stepped hem and a small mark. */
 export function capeTexture(hex) {

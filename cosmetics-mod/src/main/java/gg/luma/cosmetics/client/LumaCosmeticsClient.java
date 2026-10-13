@@ -2,9 +2,12 @@ package gg.luma.cosmetics.client;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import gg.luma.cosmetics.BoardPayload;
 import gg.luma.cosmetics.ChoosePayload;
 import gg.luma.cosmetics.Cosmetics;
 import gg.luma.cosmetics.SetPayload;
+import gg.luma.cosmetics.StylePayload;
+import gg.luma.cosmetics.StyleSetPayload;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -23,13 +26,16 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The client side: tells the server what the player wears, keeps what everyone wears, and draws
- * capes (via the skin textures) and pets. The pick comes from the launcher — config/luma-cosmetics.json,
- * reread every two seconds so the wardrobe works in a running game, or -Dluma.cape / -Dluma.pet
- * from launchers older than that file.
+ * capes (via the skin textures), pets, name badges and trails. The pick comes from the launcher —
+ * config/luma-cosmetics.json, reread every two seconds so the wardrobe works in a running game,
+ * or -Dluma.cape / -Dluma.pet from launchers older than that file. It also keeps the player's
+ * statistics for the launcher (StatsFile).
  */
 public class LumaCosmeticsClient implements ClientModInitializer {
 	/** What each player on the server wears, the local player included (the server echoes it back). */
 	public static final Map<UUID, Cosmetics.Choice> WORN = new ConcurrentHashMap<>();
+	/** Each player's title, name color, trail and crown. */
+	public static final Map<UUID, Cosmetics.Shown> SHOWN = new ConcurrentHashMap<>();
 	static final Logger LOG = LoggerFactory.getLogger(Cosmetics.MOD_ID);
 	private static final Path LOOK = FabricLoader.getInstance().getConfigDir().resolve("luma-cosmetics.json");
 	private static final int EVERY = 40;
@@ -38,10 +44,12 @@ public class LumaCosmeticsClient implements ClientModInitializer {
 
 	/** What this connection last told the server; null — nothing yet. */
 	private static Cosmetics.Choice sent;
-	private static boolean answered, noMod;
-	private static int ticks, unanswered;
+	private static Cosmetics.Style sentStyle;
+	private static boolean answered, styleAnswered, noMod;
+	private static int ticks, unanswered, styleUnanswered;
 	private static long lookStamp = Long.MIN_VALUE;
 	private static Cosmetics.Choice fromFile;
+	private static Cosmetics.Style styleFromFile = Cosmetics.Style.NONE;
 
 	@Override
 	public void onInitializeClient() {
@@ -51,16 +59,27 @@ public class LumaCosmeticsClient implements ClientModInitializer {
 			else WORN.put(payload.player(), choice);
 			if (payload.player().equals(context.player().getUuid())) answered = true;
 		});
+		ClientPlayNetworking.registerGlobalReceiver(StyleSetPayload.ID, (payload, context) -> {
+			Cosmetics.Shown shown = payload.shown();
+			if (shown.isEmpty()) SHOWN.remove(payload.player());
+			else SHOWN.put(payload.player(), shown);
+			if (payload.player().equals(context.player().getUuid())) styleAnswered = true;
+		});
+		ClientPlayNetworking.registerGlobalReceiver(BoardPayload.ID, (payload, context) -> StatsFile.onBoard(payload));
 
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> reset());
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			StatsFile.flush(client);
 			reset();
 			WORN.clear();
+			SHOWN.clear();
 			Pets.clear();
 		});
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			Pets.tick(client);
+			Trails.tick(client);
+			StatsFile.tick(client);
 			share(client);
 		});
 		WorldRenderEvents.AFTER_ENTITIES.register(Pets::render);
@@ -68,8 +87,10 @@ public class LumaCosmeticsClient implements ClientModInitializer {
 
 	private static void reset() {
 		sent = null;
-		answered = noMod = false;
-		ticks = unanswered = 0;
+		sentStyle = null;
+		answered = styleAnswered = noMod = false;
+		ticks = unanswered = styleUnanswered = 0;
+		StatsFile.reset();
 	}
 
 	/**
@@ -87,15 +108,34 @@ public class LumaCosmeticsClient implements ClientModInitializer {
 		}
 		Cosmetics.Choice now = mine();
 		if (now.equals(sent)) {
-			if (answered || unanswered >= RETRIES) return;
-			unanswered++;
+			if (!answered && unanswered < RETRIES) {
+				unanswered++;
+				ClientPlayNetworking.send(new ChoosePayload(now.cape(), now.pet()));
+			}
 		} else {
 			LOG.info("Luma Cosmetics: wearing cape={} pet={}", or(now.cape()), or(now.pet()));
 			unanswered = 0;
+			ClientPlayNetworking.send(new ChoosePayload(now.cape(), now.pet()));
+			sent = now;
+			answered = false;
 		}
-		ClientPlayNetworking.send(new ChoosePayload(now.cape(), now.pet()));
-		sent = now;
-		answered = false;
+		shareStyle();
+	}
+
+	/** The same for the title, color and trail — only to servers on 1.1 or later, which know the channel. */
+	private static void shareStyle() {
+		if (!ClientPlayNetworking.canSend(StylePayload.ID)) return;
+		Cosmetics.Style now = styleFromFile;
+		if (now.equals(sentStyle)) {
+			if (styleAnswered || styleUnanswered >= RETRIES) return;
+			styleUnanswered++;
+		} else {
+			LOG.info("Luma Cosmetics: styling title={} color={} trail={}", or(now.title()), or(now.color()), or(now.trail()));
+			styleUnanswered = 0;
+		}
+		ClientPlayNetworking.send(new StylePayload(now.title(), now.color(), now.trail()));
+		sentStyle = now;
+		styleAnswered = false;
 	}
 
 	/** The launcher's pick: its file, or the launch flags; nothing when the game wasn't started by Luma. */
@@ -111,6 +151,7 @@ public class LumaCosmeticsClient implements ClientModInitializer {
 			if (stamp != lookStamp) {
 				JsonObject o = JsonParser.parseString(Files.readString(LOOK)).getAsJsonObject();
 				fromFile = new Cosmetics.Choice(text(o, "cape"), text(o, "pet")).sanitized();
+				styleFromFile = new Cosmetics.Style(text(o, "title"), text(o, "color"), text(o, "trail")).sanitized();
 				lookStamp = stamp;
 			}
 			return fromFile;

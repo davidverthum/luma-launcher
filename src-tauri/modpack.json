@@ -323,24 +323,24 @@
   {
    "slug": "luma-menu",
    "name": "Luma Menu",
-   "version": "1.0.1",
-   "file": "luma-menu-1.0.1.jar",
-   "url": "https://github.com/davidverthum/luma-launcher/releases/download/menu-v1.0.1/luma-menu-1.0.1.jar",
-   "sha512": "91fb7b0c1b47acb01c703da25dd06c2be0b30bff1decbaa8141adb418edb4d6f04ad3d0e23901fa50a1dacfc07061bd0f94d6eceef4b2b0fd907d7ae4dde54c3",
-   "size": 446612,
+   "version": "1.1.0",
+   "file": "luma-menu-1.1.0.jar",
+   "url": "https://github.com/davidverthum/luma-launcher/releases/download/menu-v1.1.0/luma-menu-1.1.0.jar",
+   "sha512": "13c81e99cbee9d8c6deba48e4d44381532385e0ea1062105b9d43a32ec71d929c0117d6ea694a7da94755ee59c7e8bd8ef0b34c5d73c48c4e7de949db8ab00d3",
+   "size": 458893,
    "page": "https://github.com/davidverthum/luma-launcher/tree/main/menu-mod",
-   "description": "Своё главное меню игры: подключиться к серверу, настройки, моды"
+   "description": "Своё главное меню, меню паузы и экраны загрузки в стиле Luma"
   },
   {
    "slug": "luma-cosmetics",
    "name": "Luma Cosmetics",
-   "version": "1.0.1",
-   "file": "luma-cosmetics-1.0.1.jar",
-   "url": "https://github.com/davidverthum/luma-launcher/releases/download/cosmetics-v1.0.1/luma-cosmetics-1.0.1.jar",
-   "sha512": "8ab7da5fe4ea4c3598f4aa893e35cf9f58c667745404604e7fbe770152761fb7233e82dc6ae7b7304dfe70594d78065db668e71af3db575a5992f2e43309de89",
-   "size": 27377,
+   "version": "1.1.0",
+   "file": "luma-cosmetics-1.1.0.jar",
+   "url": "https://github.com/davidverthum/luma-launcher/releases/download/cosmetics-v1.1.0/luma-cosmetics-1.1.0.jar",
+   "sha512": "52003aaa5546e80aea62e51cfa8b7e35e65e1617ffe9270a75eb7d8f6224971d11c7a158dbf1361825a189a2c198029d6fff7d912ff45889ef44e3ce46c071a6",
+   "size": 56602,
    "page": "https://github.com/davidverthum/luma-launcher/tree/main/cosmetics-mod",
-   "description": "Плащи и питомцы из гардероба Luma — их видят все на сервере"
+   "description": "Плащи, питомцы, титулы, цвет ника и следы из гардероба Luma, статистика для лаунчера"
   }
  ],
  "optional": [

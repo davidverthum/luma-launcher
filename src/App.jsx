@@ -29,6 +29,9 @@ const DEFAULTS = {
   java: 'j21',
   skin: null,
   cape: 'luma',
+  title: null, // cosmetics.js TITLES — shown above the name in game
+  nameColor: null, // cosmetics.js NAME_COLORS
+  trail: null, // cosmetics.js TRAILS
   balance: 1250,
   shader: null,
   perfPreset: null,
