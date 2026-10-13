@@ -4,6 +4,19 @@ body { user-select: none; -webkit-user-select: none; cursor: default; }
 input, textarea { user-select: text; -webkit-user-select: text; }
 .app-boot { height: 100%; background: var(--surface-0); }
 
+/* Scrollbars, everywhere: no arrows, a slim pill floating on a clear track. Faint at rest, clearer
+   while the pointer is over what scrolls, lit in the accent when grabbed. (Setting scrollbar-width
+   or scrollbar-color anywhere would switch that element back to the system look.) */
+::-webkit-scrollbar { width: 12px; height: 12px; background: transparent; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+::-webkit-scrollbar-thumb { min-height: 36px; border: 3px solid transparent; border-radius: var(--radius-full); background-clip: padding-box;
+  background-color: color-mix(in srgb, var(--ink) 10%, transparent); }
+:hover::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--ink) 24%, transparent); }
+::-webkit-scrollbar-thumb:hover { border-width: 2px; background-color: color-mix(in srgb, var(--luma) 70%, transparent); }
+::-webkit-scrollbar-thumb:active { border-width: 2px; background-color: var(--luma); }
+
 /* ---------- shell ---------- */
 .app { position: relative; height: 100%; overflow: hidden; display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); grid-template-rows: var(--titlebar-h) minmax(0, 1fr); background: var(--surface-0); }
 .app-art { position: absolute; left: var(--rail-w); top: 0; right: 0; height: min(70vh, 760px); pointer-events: none; }
@@ -306,10 +319,10 @@ input, textarea { user-select: text; -webkit-user-select: text; }
   -webkit-backdrop-filter: blur(var(--blur-strong)); backdrop-filter: blur(var(--blur-strong)); box-shadow: var(--glass-highlight), var(--shadow-2); min-height: 0; overflow: hidden; }
 /* Only the grid scrolls: the tabs stay on top at full width, the chosen item and its button at the bottom. */
 .wr-shop-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 16px; }
-.wr-shop-body > .wr-grid { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.wr-shop-body > .wr-grid { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
 .wr-shop-body > .wr-detail { flex: none; }
 /* «Стиль»: title, name color and trail, each applied at once. */
-.wr-style { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.wr-style { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
 .wr-style-part { display: flex; flex-direction: column; gap: 10px; }
 .wr-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .wr-chip { height: 32px; padding: 0 12px; border: 0; border-radius: var(--radius-sm); background: var(--surface-3); color: var(--ink); font: 600 13px/16px var(--font-text); cursor: pointer;
