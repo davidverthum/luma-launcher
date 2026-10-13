@@ -271,21 +271,40 @@ const DEFAULT_KEYS: [(&str, &str); 3] = [
     ("key_key.emotecraft.fastchoose", "key.keyboard.x"),
     ("key_key.emotecraft.debug", "key.keyboard.unknown"),
 ];
+/// Bindings that come on the same key as another one in the pack. In 1.21.1 a key drives only one
+/// binding, so one of the two silently does nothing — the emote wheel on X lost to vanilla's
+/// creative «load hotbar». (moves, stays, the shared key, where the first one goes.)
+const KEY_CLASHES: [(&str, &str, &str, &str); 4] = [
+    ("key_key.loadToolbarActivator", "key_key.emotecraft.fastchoose", "key.keyboard.x", "key.keyboard.unknown"),
+    ("key_key.saveToolbarActivator", "key_zoomify.key.zoom", "key.keyboard.c", "key.keyboard.unknown"),
+    // Xaero's: the new waypoint next to U (the waypoint list), the big minimap next to ] (its settings).
+    ("key_gui.xaero_new_waypoint", "key_key.travelersbackpack.inventory", "key.keyboard.b", "key.keyboard.i"),
+    ("key_gui.xaero_enlarge_map", "key_key.travelersbackpack.cycle_tool", "key.keyboard.z", "key.keyboard.left.bracket"),
+];
 /// Minecraft 1.21.1's data version; a fresh options.txt needs it or the game "upgrades" it as ancient.
 const OPTIONS_VERSION: &str = "3955";
 
-/// Sets [`DEFAULT_KEYS`] only where the player has no binding yet, so their own choice always wins.
+/// Sets [`DEFAULT_KEYS`] only where the player has no binding yet, so their own choice always wins,
+/// and pulls apart [`KEY_CLASHES`] while both bindings still sit on the shared default.
 pub fn ensure_default_keys(instance: &Path) -> Result<(), String> {
     let path = instance.join("options.txt");
     let mut options = read_options(&path);
-    let before = options.len();
+    let before = options.clone();
     if options.is_empty() {
         options.insert("version".into(), OPTIONS_VERSION.into());
     }
     for (k, v) in DEFAULT_KEYS {
         options.entry(k.into()).or_insert_with(|| v.into());
     }
-    if options.len() != before {
+    for (moves, stays, shared, to) in KEY_CLASHES {
+        let now = options.get(moves).map(String::as_str);
+        let other = options.get(stays).map(String::as_str);
+        // Not written yet (a fresh install): the game would write the clashing default, so get there first.
+        if now.is_none() || (now == Some(shared) && other.is_none_or(|k| k == shared)) {
+            options.insert(moves.into(), to.into());
+        }
+    }
+    if options != before {
         write_options(&path, &options)?;
     }
     Ok(())
@@ -362,6 +381,38 @@ mod tests {
         let full = fs::read_to_string(&path).unwrap();
         ensure_default_keys(&dir).unwrap();
         assert_eq!(fs::read_to_string(&path).unwrap(), full);
+    }
+
+    #[test]
+    fn clashing_keys_pulled_apart() {
+        let dir = instance("clash");
+        let path = dir.join("options.txt");
+        // What the game wrote after a session with the pack's defaults.
+        fs::write(&path, "version:3955\nkey_key.loadToolbarActivator:key.keyboard.x\nkey_key.emotecraft.fastchoose:key.keyboard.x\n\
+            key_key.saveToolbarActivator:key.keyboard.c\nkey_zoomify.key.zoom:key.keyboard.c\n\
+            key_gui.xaero_new_waypoint:key.keyboard.b\nkey_key.travelersbackpack.inventory:key.keyboard.b\n\
+            key_gui.xaero_enlarge_map:key.keyboard.z\nkey_key.travelersbackpack.cycle_tool:key.keyboard.g\n").unwrap();
+        ensure_default_keys(&dir).unwrap();
+        let o = read_options(&path);
+        let key = |k: &str| o.get(k).map(String::as_str);
+        assert_eq!(key("key_key.loadToolbarActivator"), Some("key.keyboard.unknown"));
+        assert_eq!(key("key_key.emotecraft.fastchoose"), Some("key.keyboard.x"));
+        assert_eq!(key("key_key.saveToolbarActivator"), Some("key.keyboard.unknown"));
+        assert_eq!(key("key_zoomify.key.zoom"), Some("key.keyboard.c"));
+        assert_eq!(key("key_gui.xaero_new_waypoint"), Some("key.keyboard.i"));
+        assert_eq!(key("key_key.travelersbackpack.inventory"), Some("key.keyboard.b"));
+        // The player moved the backpack's tool key off Z: no clash, Xaero keeps its Z.
+        assert_eq!(key("key_gui.xaero_enlarge_map"), Some("key.keyboard.z"));
+    }
+
+    #[test]
+    fn clash_left_alone_when_the_player_chose_it() {
+        let dir = instance("chosen");
+        let path = dir.join("options.txt");
+        // The player put «load hotbar» on V themselves: it stays there.
+        fs::write(&path, "version:3955\nkey_key.loadToolbarActivator:key.keyboard.v\nkey_key.emotecraft.fastchoose:key.keyboard.x\n").unwrap();
+        ensure_default_keys(&dir).unwrap();
+        assert_eq!(read_options(&path).get("key_key.loadToolbarActivator").map(String::as_str), Some("key.keyboard.v"));
     }
 
     #[test]
