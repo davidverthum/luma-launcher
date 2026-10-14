@@ -68,6 +68,34 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 .map-frame-overlay { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 24px; background: var(--surface-2); }
 .map-frame-overlay .body { max-width: 420px; color: var(--ink-2); }
 .map-frame-actions { display: flex; gap: 10px; }
+.map-body { flex: 1; min-height: 0; display: flex; gap: 16px; }
+.map-body > .map-frame-wrap { min-width: 0; }
+/* where the map was asked to look: a screenshot, a place, a line of the chronicle */
+.map-focus { position: absolute; left: 50%; bottom: 14px; z-index: 2; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 28px);
+  padding: 4px 4px 4px 12px; border-radius: var(--radius-full); background: var(--glass-strong); -webkit-backdrop-filter: blur(var(--blur-strong)); backdrop-filter: blur(var(--blur-strong));
+  box-shadow: var(--glass-highlight), var(--shadow-2); animation: map-focus-in 360ms var(--lm-spring) backwards; }
+@keyframes map-focus-in { from { opacity: 0; transform: translate(-50%, 10px) scale(.94); } }
+.map-focus > .lm-icon { flex: none; color: var(--luma-ink); }
+.map-focus-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px/16px var(--font-text); }
+.map-focus .caption { flex: none; color: var(--ink-2); white-space: nowrap; }
+.map-places { width: 284px; flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 16px 10px 14px; border-radius: 14px;
+  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.map-places-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 0 8px; }
+.map-places-head .caption { color: var(--ink-3); }
+.map-places-list { flex: 1 1 auto; min-height: 0; overflow: auto; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.map-place { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--ink);
+  text-align: left; cursor: pointer; transition: background var(--lm-t-fast); }
+.map-place:hover { background: var(--surface-3); }
+.map-place.is-on { background: var(--luma-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--luma) 30%, transparent); }
+.map-place:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.map-place .lm-head { flex: none; }
+.map-place-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.map-place-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 14px/18px var(--font-text); }
+.map-place-text .caption { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.map-places-empty { margin: 0; padding: 0 8px; color: var(--ink-2); }
+.map-places-hint { margin: auto 0 0; padding: 12px 8px 0; color: var(--ink-3); box-shadow: inset 0 1px 0 0 var(--line); }
+.map-places-hint .mono { color: var(--ink-2); }
+@media (max-width: 1180px) { .map-places { width: 240px; } }
 
 /* ---------- mods ---------- */
 .mod-list { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
@@ -151,6 +179,22 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 .adm-restart > .caption, .adm-names > .caption { margin: 0; color: var(--ink-2); }
 .adm-restart-left { font-size: 28px; line-height: 1; color: var(--luma-ink); font-variant-numeric: tabular-nums; }
 .adm-names-tools { display: inline-flex; gap: 2px; }
+/* world backups and the mods check (Luma Cosmetics 1.2) */
+.adm-backup-status { display: flex; align-items: center; gap: 8px; }
+.adm-backup-icon { flex: none; color: var(--luma-ink); }
+.adm-backup-text { display: flex; flex-direction: column; gap: 2px; }
+.adm-backup-text .caption { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.adm-backup-size { flex: none; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.adm-backup-opts { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 8px 12px; }
+.adm-backup-opts .seg { justify-self: start; }
+.adm-backup-opts .caption { color: var(--ink-2); }
+.adm-help-toggle { all: unset; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border-radius: 4px; cursor: pointer; color: var(--luma-ink); font: 600 13px/18px var(--font-text); }
+.adm-help-toggle:focus-visible { box-shadow: var(--focus-ring); }
+.adm-help { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; color: var(--ink-2); }
+.adm-mods-row { display: flex; flex-direction: column; gap: 4px; }
+.adm-mods-row.is-flagged > .adm-player { background: color-mix(in srgb, var(--danger) 9%, transparent); }
+.adm-mods-chips { padding: 0 8px 6px 46px; }
+.hcard-chip.is-flagged { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
 @media (max-width: 1180px) { .adm-grid { grid-template-columns: 1fr; } }
 
 /* ---------- screenshots ---------- */
@@ -178,6 +222,12 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 .shot-viewer-frame { position: relative; flex: 1; align-self: stretch; min-width: 0; }
 .shot-viewer-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .shot-viewer-bar { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+/* where the shot was taken (Luma Cosmetics): one quiet line under the picture */
+.shot-place { display: flex; align-items: center; justify-content: center; gap: 8px 18px; flex-wrap: wrap; color: var(--ink-2); font: 500 13px/18px var(--font-text); }
+.shot-place-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.shot-place-item > .lm-icon { color: var(--luma-ink); }
+.shot-place-item b { color: var(--ink); font-weight: 600; }
+.shot-place-item.mono { font-size: 12px; color: var(--ink); }
 
 /* ---------- home ---------- */
 .home { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 304px; }
@@ -337,6 +387,28 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 .wr-color.is-on { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--sw); }
 .wr-slot--sm { width: 56px; height: 56px; }
 .wr-style-note { margin: 0; color: var(--ink-2); }
+.wr-style-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.wr-style-head .caption { color: var(--ink-2); }
+/* Titles are earned: each card says how, and a locked one shows how far along you are. */
+.wr-titles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.wr-title { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; border: 0; border-radius: var(--radius-md); background: var(--surface-3); color: var(--ink);
+  text-align: left; cursor: pointer; transition: background var(--lm-t-fast), color var(--lm-t-fast), box-shadow var(--lm-t-fast); }
+.wr-title:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.wr-title:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.wr-title.is-on { background: var(--luma); color: var(--on-luma); box-shadow: 0 6px 18px -8px var(--luma); }
+.wr-title.is-on .wr-title-goal { color: color-mix(in srgb, var(--on-luma) 72%, transparent); }
+.wr-title.is-locked { background: color-mix(in srgb, var(--surface-3) 50%, transparent); box-shadow: inset 0 0 0 1px var(--line); }
+.wr-title.is-locked .wr-title-name { color: var(--ink-2); }
+.wr-title.is-locked .lm-icon { color: var(--ink-3); }
+/* picked before it was earned: outlined, not lit — the game won't show it yet */
+.wr-title.is-on.is-locked { color: var(--ink); box-shadow: inset 0 0 0 1px var(--luma-ink); }
+.wr-title.is-on.is-locked .wr-title-goal { color: var(--ink-2); }
+.wr-title-name { display: flex; align-items: center; justify-content: space-between; gap: 6px; font: 600 13px/16px var(--font-text); }
+.wr-title-goal { font: 500 12px/16px var(--font-text); color: var(--ink-2); }
+.wr-title-progress { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.wr-title-bar { flex: 1; height: 4px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.wr-title-bar i { display: block; height: 100%; border-radius: 2px; background: var(--luma); }
+.wr-title-count { flex: none; font: 600 11px/14px var(--font-text); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 /* What others see over your head in game: a Minecraft name tag. */
 .wr-model { position: relative; }
 .wr-nameplate { position: absolute; top: 4%; left: 50%; transform: translateX(-50%); z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; pointer-events: none; }
@@ -542,6 +614,25 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 .board-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 14px/18px var(--font-text); }
 .board-value { flex: none; font: 700 14px/18px var(--font-text); color: var(--ink); font-variant-numeric: tabular-nums; }
 @media (max-width: 1180px) { .stats-row { grid-template-columns: 1fr; } }
+/* Server page: the chronicle — what happened on the server, by day, in the game's own words. */
+.chron { flex: none; gap: 14px; }
+.chron-day { display: flex; flex-direction: column; gap: 4px; }
+.chron-day-title { padding: 0 8px; color: var(--ink-3); }
+.chron-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.chron-row { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 8px; border-radius: var(--radius-sm); }
+.chron-row:hover { background: var(--surface-3); }
+.chron-icon { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 6px; color: var(--luma-ink); background: color-mix(in srgb, var(--luma) 12%, transparent); }
+.chron-row.is-death .chron-icon { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.chron-row.is-boss .chron-icon { color: #ffb547; background: color-mix(in srgb, #ffb547 14%, transparent); }
+.chron-row .lm-head { flex: none; }
+.chron-text { flex: 1; min-width: 0; font: 500 14px/20px var(--font-text); color: var(--ink-2); overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+.chron-text b { color: var(--ink); font-weight: 600; }
+.chron-new { display: inline-block; margin-left: 8px; padding: 0 6px; border-radius: 4px; font: 700 10px/16px var(--font-text); letter-spacing: .04em; text-transform: uppercase; vertical-align: 1px;
+  color: var(--on-luma); background: var(--luma); }
+.chron-map { flex: none; opacity: .5; transition: opacity var(--lm-t-fast); }
+.chron-row:hover .chron-map, .chron-map:focus-visible { opacity: 1; }
+.chron-time { flex: none; min-width: 40px; text-align: right; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.chron-more { align-self: center; }
 @media (max-width: 1180px) { .realms-grid--one { grid-template-columns: 1fr; } }
 
 .app-toasts .lm-toast-body { overflow-wrap: anywhere; }

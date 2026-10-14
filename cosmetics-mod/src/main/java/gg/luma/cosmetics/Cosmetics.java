@@ -9,8 +9,9 @@ public final class Cosmetics {
 
 	public static final Set<String> CAPES = Set.of("luma", "dawn", "soul", "neon", "lava", "crystal", "night", "star");
 	public static final Set<String> PETS = Set.of("fox", "cat", "axolotl", "parrot", "bee", "frog", "rabbit", "chicken");
-	/** Shown above the name; the words are in the lang files (luma-cosmetics.title.<id>). */
-	public static final Set<String> TITLES = Set.of("builder", "miner", "farmer", "explorer", "cook", "warrior", "fisher", "trader");
+	/** Shown above the name; the words are in the lang files (luma-cosmetics.title.<id>). Each is
+	 * earned in game — server.Titles has what it takes. */
+	public static final Set<String> TITLES = Set.of("builder", "miner", "farmer", "explorer", "cook", "warrior", "fisher", "trader", "veteran", "dragonslayer");
 	/** Name colors: the launcher's accents (src/accent.js). */
 	public static final Map<String, Integer> COLORS = Map.of(
 		"luma", 0xD4FF3D, "mint", 0x3DFFA8, "ice", 0x4FE3FF, "violet", 0xB39BFF,

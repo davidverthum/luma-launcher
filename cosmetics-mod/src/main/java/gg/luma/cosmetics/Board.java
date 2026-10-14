@@ -50,7 +50,7 @@ public final class Board {
 	}
 
 	/** Everyone who ever played here, most time played first; rebuilt at most once a minute. */
-	static synchronized List<BoardPayload.Entry> get(MinecraftServer server) {
+	public static synchronized List<BoardPayload.Entry> get(MinecraftServer server) {
 		long now = System.currentTimeMillis();
 		if (now - cachedAt < CACHE_MS) return cached;
 		Map<UUID, BoardPayload.Entry> all = new HashMap<>();

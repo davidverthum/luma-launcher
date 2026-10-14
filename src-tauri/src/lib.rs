@@ -4,6 +4,7 @@
 mod admin;
 mod crash;
 mod elyby;
+mod feed;
 mod game;
 mod launch;
 mod mods;
@@ -359,6 +360,19 @@ fn game_stats(app: AppHandle) -> Result<Option<serde_json::Value>, String> {
     Ok(launch::read_stats(&game::instance_dir(&app)?))
 }
 
+/// luma/<name>.json the server publishes for the launcher (chronicle, places, online, board, maps);
+/// null while it doesn't.
+#[tauri::command]
+async fn server_feed(name: String) -> Result<Option<serde_json::Value>, String> {
+    feed::fetch(&name).await
+}
+
+/// Minecraft's own Russian words, to show the chronicle's lines; null before the first game launch.
+#[tauri::command]
+fn mc_lang(app: AppHandle) -> Result<Option<serde_json::Value>, String> {
+    Ok(feed::ru_lang(&game::minecraft_dir(&app)?))
+}
+
 #[tauri::command]
 fn list_shaders() -> Vec<game::ShaderFile> {
     game::modpack().shaders.clone()
@@ -587,6 +601,8 @@ pub fn run() {
             play_direct,
             set_look,
             game_stats,
+            server_feed,
+            mc_lang,
             list_shaders,
             list_local_mods,
             add_local_mod,

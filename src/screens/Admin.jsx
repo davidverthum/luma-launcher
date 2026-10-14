@@ -30,6 +30,20 @@ function parseWhitelist(reply) {
 /** `banlist players` → names. RCON glues the lines together, so match each "X was banned by". */
 const parseBans = (reply) => [...String(reply || '').matchAll(/([A-Za-z0-9_-]{1,16}) was banned by/g)].map((m) => m[1]);
 
+/** The one line of JSON a `/luma …` command answers with; null when the server doesn't know the
+ * command (no Luma Cosmetics 1.2 there). */
+function parseJson(reply) {
+  const s = String(reply || '');
+  const from = s.indexOf('{');
+  const to = s.lastIndexOf('}');
+  if (from < 0 || to < from) return null;
+  try { const v = JSON.parse(s.slice(from, to + 1)); return v && typeof v === 'object' ? v : null; } catch { return null; }
+}
+
+const bytes = (b) => (b >= 2 ** 30 ? (b / 2 ** 30).toFixed(1).replace('.', ',') + ' ГБ' : Math.max(1, Math.round(b / 2 ** 20)) + ' МБ');
+const when = (t) => new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+const NO_MOD = 'Сервер не знает команду /luma: положи на него Luma Cosmetics 1.2 (в папку mods сервера) и перезапусти.';
+
 // The console log and command history outlive switching screens (not an app restart); the
 // restart countdown keeps sending even while another screen is open.
 const session = { log: [], history: [], seq: 0 };
@@ -263,6 +277,8 @@ function Console({ panel, notify, onLogout }) {
         </div>
         <WhitelistCard run={run} />
         <BansCard run={run} />
+        <BackupsCard run={run} notify={notify} />
+        <ModsCard run={run} />
         <section className="st-card adm-console">
           <div className="st-row">
             <div className="body-strong">Консоль</div>
@@ -377,5 +393,150 @@ function BansCard({ run }) {
   return (
     <NameListCard title="Баны" empty="Никто не забанен." names={names} onReload={load}
       actionLabel="Разбанить" onAction={(n) => run('pardon ' + n).then(load)} />
+  );
+}
+
+const AUTO_HOURS = [0, 6, 12, 24];
+const KEEP = [1, 2, 3, 5];
+const withCurrent = (list, v) => (typeof v === 'number' && !list.includes(v) ? [...list, v].sort((a, b) => a - b) : list);
+
+/** World backups (Luma Cosmetics 1.2: /luma backup …): make one now, keep the newest few, every few hours. */
+function BackupsCard({ run, notify }) {
+  const [info, setInfo] = useState(undefined); // undefined — asking; null — the server can't
+  const [comment, setComment] = useState('');
+  const [help, setHelp] = useState(false);
+  const load = () => run('luma backup list', true).then((r) => { if (r != null) setInfo(parseJson(r)); });
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  // While a backup runs, ask every few seconds; say how it went when it's done.
+  const running = !!(info && info.running);
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !running && info) {
+      const ok = /^Бэкап готов/.test(info.status || '');
+      notify({ tone: ok ? undefined : 'danger', icon: ok ? 'archive' : 'close', title: ok ? 'Бэкап готов' : 'Бэкап не получился', body: info.status, duration: 10000 });
+    }
+    wasRunning.current = running;
+    if (!running) return undefined;
+    const id = setInterval(load, 3000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running]);
+
+  const start = (e) => {
+    e.preventDefault();
+    const text = comment.replace(/[\r\n]+/g, ' ').trim().slice(0, 100);
+    run('luma backup now' + (text ? ' ' + text : '')).then((r) => {
+      if (r == null) return;
+      if (/^Бэкап начат/.test(r.trim())) setComment('');
+      else notify({ tone: 'danger', icon: 'close', title: 'Бэкап не начался', body: r.trim() || 'Сервер не ответил.' });
+      load();
+    });
+  };
+  const set = (command) => run(command, true).then(load);
+  const list = info && Array.isArray(info.backups) ? info.backups : [];
+
+  return (
+    <section className="st-card adm-names adm-backups">
+      <div className="st-row">
+        <div className="body-strong">Бэкапы мира{info ? ' · ' + list.length : ''}</div>
+        <Button size="sm" variant="ghost" onClick={load}>Обновить</Button>
+      </div>
+      {info === undefined ? <p className="caption">Спрашиваем сервер…</p> : info === null ? <p className="caption">{NO_MOD}</p> : (
+        <>
+          <form onSubmit={start}>
+            <Input placeholder="Комментарий: перед обновлением модов" value={comment} onChange={(e) => setComment(e.target.value)} maxLength={100} disabled={running} autoComplete="off"
+              right={<Button size="sm" variant="luma" type="submit" icon="archive" loading={running}>{running ? 'Идёт…' : 'Сделать бэкап'}</Button>} />
+          </form>
+          {running
+            ? <p className="caption adm-backup-status"><Spinner /> Собираем архив. Сервер работает дальше — пока архив собирается, мир не пишется на диск.</p>
+            : info.status ? <p className="caption adm-backup-status">{info.status}</p> : null}
+          {list.length ? (
+            <ul className="adm-list">
+              {list.map((b) => (
+                <li key={b.name} className="adm-player">
+                  <Icon name="archive" size={24} className="adm-backup-icon" />
+                  <span className="adm-player-name adm-backup-text"><span className="body-strong">{when(b.t)}</span><span className="caption mono">{b.name}</span></span>
+                  <span className="caption adm-backup-size">{bytes(b.size)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="caption">Бэкапов ещё нет.</p>}
+          <div className="adm-backup-opts">
+            <span className="caption">Автобэкап</span>
+            <div className="seg">
+              {withCurrent(AUTO_HOURS, info.auto).map((h) => <button key={h} type="button" className={info.auto === h ? 'is-on' : ''} onClick={() => set('luma backup auto ' + h)}>{h ? 'раз в ' + h + ' ч' : 'выкл'}</button>)}
+            </div>
+            <span className="caption">Хранить</span>
+            <div className="seg">
+              {withCurrent(KEEP, info.keep).map((n) => <button key={n} type="button" className={info.keep === n ? 'is-on' : ''} onClick={() => set('luma backup keep ' + n)}>{n}</button>)}
+            </div>
+          </div>
+          <p className="caption">
+            {info.free != null ? 'Свободно на диске сервера: ' + bytes(info.free) + '. ' : ''}
+            Архивы лежат в папке backups рядом с миром, самые старые удаляются сами. Автобэкап делается, только если кто-то играл.
+          </p>
+          <button type="button" className="adm-help-toggle" aria-expanded={help} onClick={() => setHelp((h) => !h)}>
+            <Icon name={help ? 'chevron-down' : 'chevron-right'} size={12} />Как вернуть мир из бэкапа
+          </button>
+          {help ? (
+            <ol className="adm-help caption">
+              <li>Останови сервер в панели QWERTYX.</li>
+              <li>В файлах сервера открой папку backups и распакуй нужный архив — внутри папка world.</li>
+              <li>Переименуй папку мира сервера (обычно world) в world-old — на всякий случай.</li>
+              <li>Положи на её место world из архива и запусти сервер.</li>
+            </ol>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
+/** «Проверка сборки»: what each player's game reports it came with (Luma Cosmetics 1.2: /luma mods). */
+function ModsCard({ run }) {
+  const [data, setData] = useState(undefined);
+  const load = () => run('luma mods', true).then((r) => { if (r != null) setData(parseJson(r)); });
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  const players = data && Array.isArray(data.players) ? data.players : [];
+  return (
+    <section className="st-card adm-names adm-mods">
+      <div className="st-row">
+        <div className="body-strong">Проверка сборки{data ? ' · ' + players.length : ''}</div>
+        <Button size="sm" variant="ghost" onClick={load}>Обновить</Button>
+      </div>
+      {data === undefined ? <p className="caption">Спрашиваем сервер…</p> : data === null ? <p className="caption">{NO_MOD}</p>
+        : !players.length ? <p className="caption">Сейчас никого нет — проверять некого.</p> : (
+          <ul className="adm-list">{players.map((p) => <ModsRow key={p.name} p={p} />)}</ul>
+        )}
+      <p className="caption">Игра каждого с Luma сама сообщает серверу, с какими модами зашла; читы, X-ray и freecam подсвечиваются. Никого не выкидывает: изменённый клиент может и соврать — это повод присмотреться.</p>
+    </section>
+  );
+}
+
+function ModsRow({ p }) {
+  const [open, setOpen] = useState(false);
+  const own = Array.isArray(p.own) ? p.own : [];
+  const flagged = Array.isArray(p.flagged) ? p.flagged : [];
+  const note = !p.luma ? 'без Luma — список модов не узнать'
+    : !p.reported ? 'с Luma, список модов ещё не пришёл'
+    : !p.packKnown ? p.count + ' ' + plural(p.count, 'мод', 'мода', 'модов') + ' · старый лаунчер: свои не отделить от сборки'
+    : own.length ? 'сборка Luma и свои моды: ' + own.length : 'только сборка Luma';
+  return (
+    <li className={'adm-mods-row' + (flagged.length ? ' is-flagged' : '')}>
+      <div className="adm-player">
+        <PlayerHead name={p.name} size={28} />
+        <span className="adm-player-name adm-backup-text"><span className="body-strong">{p.name}</span><span className="caption">{note}</span></span>
+        {flagged.length ? <Tag tone="realm" color="var(--danger)" icon="shield">подозрительно</Tag>
+          : p.reported && p.packKnown && !own.length ? <Tag tone="luma" icon="check">чисто</Tag> : null}
+        {own.length || flagged.length ? <Button size="sm" variant="ghost" onClick={() => setOpen((o) => !o)}>{open ? 'Скрыть' : 'Моды'}</Button> : null}
+      </div>
+      {open ? (
+        <div className="hcard-chips adm-mods-chips">
+          {flagged.map((id) => <span key={'!' + id} className="hcard-chip is-flagged">{id}</span>)}
+          {own.filter((m) => !flagged.includes(m.id)).map((m) => <span key={m.id} className="hcard-chip">{m.id}{m.v ? ' · ' + m.v : ''}</span>)}
+        </div>
+      ) : null}
+    </li>
   );
 }

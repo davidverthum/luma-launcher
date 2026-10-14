@@ -25,17 +25,28 @@ export const PETS = [
   { id: 'chicken', name: 'Цыплёнок', tone: '#fff3b0' },
 ];
 
-// Shown above the name in game; the mod has the same words in its lang files.
+// Shown above the name in game; the mod has the same words in its lang files. Each is earned on the
+// server (Titles.java has the same goals): `per` turns the server's count into the goal's unit.
 export const TITLES = [
-  { id: 'builder', name: 'Строитель' },
-  { id: 'miner', name: 'Шахтёр' },
-  { id: 'farmer', name: 'Фермер' },
-  { id: 'explorer', name: 'Путешественник' },
-  { id: 'cook', name: 'Повар' },
-  { id: 'warrior', name: 'Воин' },
-  { id: 'fisher', name: 'Рыбак' },
-  { id: 'trader', name: 'Торговец' },
+  { id: 'builder', name: 'Строитель', goal: 'Поставь 5 000 блоков' },
+  { id: 'miner', name: 'Шахтёр', goal: 'Добудь 50 алмазной руды' },
+  { id: 'farmer', name: 'Фермер', goal: 'Собери 500 урожая' },
+  { id: 'explorer', name: 'Путешественник', goal: 'Пройди 100 км', per: 100000, unit: 'км' },
+  { id: 'cook', name: 'Повар', goal: 'Приготовь 100 блюд' },
+  { id: 'warrior', name: 'Воин', goal: 'Победи 500 мобов' },
+  { id: 'fisher', name: 'Рыбак', goal: 'Поймай 100 рыб' },
+  { id: 'trader', name: 'Торговец', goal: 'Заключи 50 сделок с жителями' },
+  { id: 'veteran', name: 'Ветеран', goal: 'Наиграй 100 часов', per: 72000, unit: 'ч' },
+  { id: 'dragonslayer', name: 'Драконоборец', goal: 'Победи Эндер-дракона' },
 ];
+
+/** A title's count in its goal's unit: «12», «3,4 км». */
+export function titleCount(t, n) {
+  const v = t.per ? n / t.per : n;
+  const d = t.per && v < 10 ? 1 : 0;
+  const shown = Math.floor(v * 10 ** d) / 10 ** d; // rounded down: 99,6 of 100 km isn't «100»
+  return shown.toLocaleString('ru-RU', { maximumFractionDigits: d }) + (t.unit ? ' ' + t.unit : '');
+}
 
 // Name colors: the launcher's accents (accent.js), the same ids the mod knows.
 export const NAME_COLORS = [

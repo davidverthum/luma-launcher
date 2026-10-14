@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SkinViewer, Tabs, Button, Tag, Icon } from '../ds/index.js';
-import { CAPES, PETS, TITLES, NAME_COLORS, TRAILS, capeImage, lookOf } from '../cosmetics.js';
-import { skinFor, openElySkins, onElyClosed, setLook, isAdmin } from '../native.js';
+import { CAPES, PETS, TITLES, NAME_COLORS, TRAILS, capeImage, lookOf, titleCount } from '../cosmetics.js';
+import { skinFor, openElySkins, onElyClosed, setLook, isAdmin, gameStats } from '../native.js';
 
 
 // Luma Cosmetics rereads the pick every couple of seconds, so a running game changes too.
@@ -55,7 +55,17 @@ export default function Wardrobe({ settings, update, notify }) {
   const [petSel, setPetSel] = useState(pet === 'none' ? PETS[0].id : pet);
   const petIt = PETS.find((p) => p.id === petSel) || PETS[0];
   const mcName = (settings.mc && settings.mc.name) || settings.profile.name;
-  const titleIt = TITLES.find((t) => t.id === settings.title) || null;
+  // Progress towards each title as the game last heard it from the server: id → { have, need }.
+  const [earned, setEarned] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    gameStats().then((s) => { if (alive && s && Array.isArray(s.titles)) setEarned(new Map(s.titles.map((p) => [p.id, p]))); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const lockedTitle = (id) => { const p = earned && earned.get(id); return !!p && p.have < p.need; };
+  const openTitles = earned ? TITLES.filter((t) => earned.has(t.id) && !lockedTitle(t.id)).length : 0;
+  // The server doesn't show a title that isn't earned yet — neither does the preview.
+  const titleIt = TITLES.find((t) => t.id === settings.title && !lockedTitle(t.id)) || null;
   const colorIt = NAME_COLORS.find((c) => c.id === settings.nameColor) || null;
   // The server gives operators the crown; the launcher's admin list is its best guess.
   const admin = isAdmin(mcName);
@@ -123,11 +133,35 @@ export default function Wardrobe({ settings, update, notify }) {
         {tab === 'style' ? (
           <div className="wr-style">
             <section className="wr-style-part">
-              <div className="body-strong">Титул над ником</div>
-              <div className="wr-chips">
-                {[{ id: '', name: 'Без титула' }, ...TITLES].map((x) => (
-                  <button key={x.id || 'none'} type="button" className={'wr-chip' + ((settings.title || '') === x.id ? ' is-on' : '')} onClick={() => wear({ title: x.id || null })}>{x.name}</button>
-                ))}
+              <div className="wr-style-head">
+                <span className="body-strong">Титул над ником</span>
+                {earned ? <span className="caption">открыто {openTitles} из {TITLES.length}</span> : null}
+              </div>
+              <div className="wr-titles">
+                <button type="button" className={'wr-title' + (!settings.title ? ' is-on' : '')} aria-pressed={!settings.title} onClick={() => wear({ title: null })}>
+                  <span className="wr-title-name">Без титула{!settings.title ? <Icon name="check" size={12} /> : null}</span>
+                  <span className="wr-title-goal">только ник</span>
+                </button>
+                {TITLES.map((t) => {
+                  const p = earned && earned.get(t.id);
+                  const locked = lockedTitle(t.id);
+                  const on = settings.title === t.id;
+                  const pick = () => (locked
+                    ? notify({ icon: 'lock', title: 'Титул «' + t.name + '» ещё не открыт', body: t.goal + (p.need > 1 ? ' — сейчас ' + titleCount(t, p.have) + ' из ' + titleCount(t, p.need) + '.' : '.') })
+                    : wear({ title: t.id }));
+                  return (
+                    <button key={t.id} type="button" className={'wr-title' + (on ? ' is-on' : '') + (locked ? ' is-locked' : '')} aria-pressed={on} onClick={pick}>
+                      <span className="wr-title-name">{t.name}{locked ? <Icon name="lock" size={12} /> : on ? <Icon name="check" size={12} /> : null}</span>
+                      <span className="wr-title-goal">{p && !locked ? 'заработан' : t.goal}</span>
+                      {locked && p.need > 1 ? (
+                        <span className="wr-title-progress">
+                          <span className="wr-title-bar"><i style={{ width: Math.max(3, Math.min(100, (p.have / p.need) * 100)) + '%' }} /></span>
+                          <span className="wr-title-count">{titleCount(t, p.have)} / {titleCount(t, p.need)}</span>
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
             </section>
             <section className="wr-style-part">
@@ -157,6 +191,7 @@ export default function Wardrobe({ settings, update, notify }) {
             </section>
             <p className="caption wr-style-note">
               Меняется сразу, в игре — через пару секунд. Видят все игроки на сервере с Luma.
+              {earned ? ' Титулы зарабатываются на сервере, прогресс обновляется раз в минуту, пока ты в игре.' : ' Титулы зарабатываются на сервере — прогресс появится здесь, когда зайдёшь в игру.'}
               {admin ? ' Корона ♛ у ника — потому что ты админ сервера.' : ''}
             </p>
           </div>

@@ -3,7 +3,7 @@
   "id": "luma-cosmetics",
   "version": "${version}",
   "name": "Luma Cosmetics",
-  "description": "Плащи и питомцы из лаунчера Luma — их видят все игроки на сервере.",
+  "description": "Мод Luma в игре и на сервере: плащи, питомцы, стиль ника и следы из гардероба, заработанные титулы, статистика, хроника, места на карте, «отошёл», проверка сборки и бэкапы мира.",
   "authors": ["Luma"],
   "contact": {
     "sources": "https://github.com/davidverthum/luma-launcher"
@@ -19,5 +19,8 @@
     "fabric-api": "*",
     "minecraft": "~1.21.1",
     "java": ">=21"
+  },
+  "suggests": {
+    "bluemap": "*"
   }
 }

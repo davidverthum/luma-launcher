@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listScreenshots } from './native.js';
 
-const same = (a, b) => a && a.length === b.length && a.every((s, i) => s.file === b[i].file && s.size === b[i].size);
+// The game writes the picture and its place note separately: a note that turns up later is a change too.
+const same = (a, b) => a && a.length === b.length && a.every((s, i) => s.file === b[i].file && s.size === b[i].size && !s.place === !b[i].place);
 
 /** Lists screenshots now, every `ms` and when the window gets focus, so a fresh F2 shows up by itself.
  * Returns [list, reload]; list is null until the first answer. */

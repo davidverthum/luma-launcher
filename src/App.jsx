@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RealmRail, TitleBar, CommandPalette, Toast, Button, VoxelArt, Icon, PlayerHead } from './ds/index.js';
-import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel, isAdmin, buildChannel, onGameCrash, notifySystem, onJoins, setJoinAlerts } from './native.js';
+import { loadSettings, saveSettings, win, platform, openGameDir, copyText, modpack, authMe, elyRefresh, checkUpdate, installUpdate, appVersion, channelLabel, isAdmin, buildChannel, onGameCrash, notifySystem, onJoins, setJoinAlerts, serverFeed, mcLang } from './native.js';
 import { notesFor } from './changelog.js';
+import { eventText } from './feed.js';
 import { useFitZoom } from './zoom.js';
 import { useAccent } from './accent.js';
 import { useServer, liveRealm } from './server.js';
@@ -38,6 +39,7 @@ const DEFAULTS = {
   updateChannel: null, // 'yug' | 'sever'; null — the channel this build came from
   seenVersion: null, // the version whose «Что нового» was already shown
   notifyJoins: true, // «X теперь на сервере»
+  chronicleSeenAt: null, // the newest line of the server's chronicle already seen («Пока тебя не было»)
 };
 
 function useSettings() {
@@ -167,6 +169,41 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedIn]);
 
+  // «Пока тебя не было»: once per launch, what happened on the server since the chronicle was last
+  // seen. The server page marks those lines as new for this session (`chronicleSince`).
+  const [chronicleSince, setChronicleSince] = useState(null);
+  useEffect(() => {
+    if (!loggedIn) return undefined;
+    let alive = true;
+    const since = settings.chronicleSeenAt || 0;
+    const me = ((settings.mc && settings.mc.name) || '').toLowerCase();
+    setChronicleSince(since || null);
+    Promise.all([serverFeed('chronicle'), mcLang()]).then(([feed, lang]) => {
+      const events = feed && Array.isArray(feed.events) ? feed.events : [];
+      if (!alive || !events.length) return;
+      const newest = events[events.length - 1].t;
+      if (newest > since) update({ chronicleSeenAt: newest });
+      if (!since) return; // the first look: nothing happened «while you were away» yet
+      const fresh = events.filter((e) => e.t > since && String(e.player || '').toLowerCase() !== me);
+      if (!fresh.length) return;
+      const lines = fresh.slice(-2).reverse().map((e) => eventText(e, lang)).filter(Boolean);
+      const more = fresh.length - lines.length;
+      notify({
+        keep: true, icon: 'news', duration: 15000,
+        title: 'Пока тебя не было',
+        body: lines.join('. ') + '.' + (more > 0 ? ' И ещё ' + more + ' — в хронике сервера.' : ''),
+        actions: [{ label: 'Хроника', icon: 'news', variant: 'luma', run: () => setRoute('realms') }],
+      });
+    }).catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loggedIn]);
+
+  // «Показать на карте» from anywhere: the map opens at that spot ({ dim, x, y, z, label }).
+  const [mapFocus, setMapFocus] = useState(null);
+  const openMap = useCallback((spot) => { setMapFocus(spot ? { ...spot, seq: Date.now() } : null); setRoute('map'); }, []);
+  useEffect(() => { if (route !== 'map') setMapFocus(null); }, [route]);
+
   // Toasts marked `keep` also land in the bell's history (joins, updates, crashes) for this session.
   const [history, setHistory] = useState([]);
   const [seenAt, setSeenAt] = useState(() => Date.now());
@@ -262,14 +299,14 @@ export default function App() {
   }
 
   const openSettings = (tab) => { setSettingsNav(tab || null); setRoute('settings'); };
-  const screenProps = { settings, update, notify, realm, setRealm, setRoute, openSettings, openFolder, server, copyAddress, startUpdate };
+  const screenProps = { settings, update, notify, realm, setRealm, setRoute, openSettings, openFolder, server, copyAddress, startUpdate, openMap };
   const screens = {
     home: <Home {...screenProps} onArtFit={setArtFit} />,
-    realms: <Realms {...screenProps} />,
+    realms: <Realms {...screenProps} chronicleSince={chronicleSince} />,
     wardrobe: <Wardrobe {...screenProps} />,
     store: <Store {...screenProps} />,
     news: <News {...screenProps} />,
-    map: <MapScreen {...screenProps} />,
+    map: <MapScreen {...screenProps} focus={mapFocus} />,
     shots: <Shots {...screenProps} />,
     admin: admin ? <Admin {...screenProps} /> : null,
     settings: <Settings {...screenProps} initialNav={settingsNav} />,

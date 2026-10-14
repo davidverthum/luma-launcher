@@ -149,6 +149,21 @@ export const setLook = (look) => (inTauri ? invoke('set_look', { cape: look.cape
 /** The player's statistics and the server's leaderboard as the game last saved them (Luma Cosmetics), or null. */
 export const gameStats = () => (inTauri ? invoke('game_stats') : Promise.resolve(null));
 
+/** What the server publishes for the launcher (Luma Cosmetics 1.2, through the map's web server):
+ * 'chronicle' | 'places' | 'online' | 'board' | 'maps'. null while the server doesn't publish it. */
+export const serverFeed = (name) => (inTauri ? invoke('server_feed', { name }) : Promise.resolve(null));
+
+let langPromise = null;
+/** The game's Russian words (minecraft ru_ru.json) for the chronicle's lines; null before the
+ * first game launch. Kept once found. */
+export function mcLang() {
+  if (!inTauri) return Promise.resolve(null);
+  if (!langPromise) {
+    langPromise = invoke('mc_lang').then((lang) => { if (!lang) langPromise = null; return lang; }, () => { langPromise = null; return null; });
+  }
+  return langPromise;
+}
+
 export function playDirect(ramGb, session, accent = null, optional = [], look = {}) {
   if (!inTauri) return Promise.reject(new Error('Это браузерная версия — скачай Luma для своей системы.'));
   return invoke('play_direct', { ramGb, session, accent, optional, cape: look.cape || null, pet: look.pet || null, title: look.title || null, color: look.color || null, trail: look.trail || null });
@@ -244,7 +259,8 @@ export function applyPerfPreset(preset) {
   return inTauri ? invoke('apply_perf_preset', { preset }) : Promise.reject(new Error('Только в приложении.'));
 }
 
-/** Screenshots the game saved (F2), newest first: [{ file, path, size, taken_ms }]. */
+/** Screenshots the game saved (F2), newest first: [{ file, path, size, taken_ms, place }] — `place`
+ * is where it was taken (Luma Cosmetics 1.2: dim, x, y, z, biomeName, dayTime, weather, players…) or null. */
 export function listScreenshots() {
   return inTauri ? invoke('list_screenshots') : Promise.resolve([]);
 }

@@ -268,11 +268,18 @@ pub async fn sync_mods(app: &AppHandle, pack: &Modpack, instance: &Path, optiona
             report.removed += 1;
         }
     }
+    // For the game's «Проверка сборки» (Luma Cosmetics): these jars are the launcher's, any other
+    // mod in the folder is the player's own.
+    let pack_files = serde_json::json!({ "files": current }).to_string();
+    write_atomic(&instance.join("config").join(PACK_FILE), pack_files.as_bytes())?;
     let body = serde_json::to_vec_pretty(&SyncState { files: current }).map_err(|e| e.to_string())?;
     write_atomic(&state_path, &body)?;
     report.downloaded_mb = (report.downloaded_mb * 10.0).round() / 10.0;
     Ok(report)
 }
+
+/// config/<this>: the jars the launcher put into mods/ (the pack and switched-on optional ones).
+pub const PACK_FILE: &str = "luma-pack.json";
 
 // ── official launcher profile ────────────────────────────────────────────
 

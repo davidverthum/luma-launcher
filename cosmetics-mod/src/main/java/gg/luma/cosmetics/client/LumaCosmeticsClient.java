@@ -8,6 +8,7 @@ import gg.luma.cosmetics.Cosmetics;
 import gg.luma.cosmetics.SetPayload;
 import gg.luma.cosmetics.StylePayload;
 import gg.luma.cosmetics.StyleSetPayload;
+import gg.luma.cosmetics.TitlesPayload;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -66,6 +67,7 @@ public class LumaCosmeticsClient implements ClientModInitializer {
 			if (payload.player().equals(context.player().getUuid())) styleAnswered = true;
 		});
 		ClientPlayNetworking.registerGlobalReceiver(BoardPayload.ID, (payload, context) -> StatsFile.onBoard(payload));
+		ClientPlayNetworking.registerGlobalReceiver(TitlesPayload.ID, (payload, context) -> StatsFile.onTitles(payload));
 
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> reset());
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
@@ -80,6 +82,7 @@ public class LumaCosmeticsClient implements ClientModInitializer {
 			Pets.tick(client);
 			Trails.tick(client);
 			StatsFile.tick(client);
+			ModReport.tick(client);
 			share(client);
 		});
 		WorldRenderEvents.AFTER_ENTITIES.register(Pets::render);
@@ -91,6 +94,7 @@ public class LumaCosmeticsClient implements ClientModInitializer {
 		answered = styleAnswered = noMod = false;
 		ticks = unanswered = styleUnanswered = 0;
 		StatsFile.reset();
+		ModReport.reset();
 	}
 
 	/**

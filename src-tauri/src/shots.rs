@@ -13,6 +13,19 @@ pub struct Shot {
     path: String,
     size: u64,
     taken_ms: u64,
+    /// Where it was taken, if the game noted it (Luma Cosmetics: screenshots/.luma/<file>.json):
+    /// dimension, coordinates, biome, time of day, weather, who was around.
+    place: Option<serde_json::Value>,
+}
+
+/// screenshots/.luma/<file>.json — the place Luma Cosmetics noted for a screenshot.
+fn place_path(instance: &Path, file: &str) -> PathBuf {
+    dir(instance).join(".luma").join(format!("{file}.json"))
+}
+
+fn place(instance: &Path, file: &str) -> Option<serde_json::Value> {
+    let text = fs::read_to_string(place_path(instance, file)).ok()?;
+    serde_json::from_str::<serde_json::Value>(&text).ok().filter(|v| v.is_object())
 }
 
 /// `<instance>/screenshots` — where Minecraft puts F2 shots for this game directory.
@@ -36,7 +49,7 @@ pub fn list(instance: &Path) -> Vec<Shot> {
                 return None;
             }
             let taken_ms = meta.modified().ok()?.duration_since(UNIX_EPOCH).ok()?.as_millis() as u64;
-            Some(Shot { path: e.path().display().to_string(), file, size: meta.len(), taken_ms })
+            Some(Shot { path: e.path().display().to_string(), place: place(instance, &file), file, size: meta.len(), taken_ms })
         })
         .collect();
     out.sort_by(|a, b| b.taken_ms.cmp(&a.taken_ms).then_with(|| b.file.cmp(&a.file)));
@@ -61,7 +74,9 @@ pub fn resolve(instance: &Path, file: &str) -> Result<PathBuf, String> {
 }
 
 pub fn delete(instance: &Path, file: &str) -> Result<(), String> {
-    fs::remove_file(resolve(instance, file)?).map_err(|e| e.to_string())
+    fs::remove_file(resolve(instance, file)?).map_err(|e| e.to_string())?;
+    let _ = fs::remove_file(place_path(instance, file));
+    Ok(())
 }
 
 #[cfg(test)]
@@ -78,6 +93,13 @@ mod tests {
             assert!(resolve(&base, bad).is_err(), "{bad} should be refused");
         }
         assert_eq!(list(&base).len(), 1);
+        assert!(list(&base)[0].place.is_none());
+        // The place Luma Cosmetics noted comes with the shot, and goes with it.
+        fs::create_dir_all(dir(&base).join(".luma")).unwrap();
+        fs::write(place_path(&base, "2026-10-10_18.21.03.png"), r#"{"dim":"minecraft:overworld","x":1,"y":64,"z":-2}"#).unwrap();
+        assert_eq!(list(&base)[0].place.as_ref().unwrap()["y"], 64);
+        delete(&base, "2026-10-10_18.21.03.png").unwrap();
+        assert!(!place_path(&base, "2026-10-10_18.21.03.png").exists());
         fs::remove_dir_all(&base).unwrap();
     }
 }

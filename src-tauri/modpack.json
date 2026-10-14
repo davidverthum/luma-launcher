@@ -334,13 +334,13 @@
   {
    "slug": "luma-cosmetics",
    "name": "Luma Cosmetics",
-   "version": "1.1.0",
-   "file": "luma-cosmetics-1.1.0.jar",
-   "url": "https://github.com/davidverthum/luma-launcher/releases/download/cosmetics-v1.1.0/luma-cosmetics-1.1.0.jar",
-   "sha512": "52003aaa5546e80aea62e51cfa8b7e35e65e1617ffe9270a75eb7d8f6224971d11c7a158dbf1361825a189a2c198029d6fff7d912ff45889ef44e3ce46c071a6",
-   "size": 56602,
+   "version": "1.2.0",
+   "file": "luma-cosmetics-1.2.0.jar",
+   "url": "https://github.com/davidverthum/luma-launcher/releases/download/cosmetics-v1.2.0/luma-cosmetics-1.2.0.jar",
+   "sha512": "f48d8fb1c6169dc44fbc9641a4f95e0781b6808fc27faadccde775dfabb0a6839b7976c0a408894e6f9ce5b1295d3549df2fa8e33103340da909b96eecc3c84e",
+   "size": 123789,
    "page": "https://github.com/davidverthum/luma-launcher/tree/main/cosmetics-mod",
-   "description": "Плащи, питомцы, титулы, цвет ника и следы из гардероба Luma, статистика для лаунчера"
+   "description": "Гардероб Luma в игре, хроника сервера, места на карте, заработанные титулы, «отошёл», бэкапы и проверка сборки"
   }
  ],
  "optional": [

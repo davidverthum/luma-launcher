@@ -4,6 +4,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import gg.luma.cosmetics.server.LumaServer;
+import gg.luma.cosmetics.server.Titles;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -46,6 +48,9 @@ public class LumaCosmetics implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(StyleSetPayload.ID, StyleSetPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(BoardRequestPayload.ID, BoardRequestPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(BoardPayload.ID, BoardPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(TitlesPayload.ID, TitlesPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(ModsPayload.ID, ModsPayload.CODEC);
+		LumaServer.init();
 
 		ServerPlayNetworking.registerGlobalReceiver(ChoosePayload.ID, (payload, context) -> {
 			ServerPlayerEntity player = context.player();
@@ -71,6 +76,10 @@ public class LumaCosmetics implements ModInitializer {
 			ServerPlayerEntity player = context.player();
 			if (tooSoon(LAST_STYLE, player.getUuid(), MIN_GAP_MS)) return;
 			Cosmetics.Style style = new Cosmetics.Style(payload.title(), payload.color(), payload.trail()).sanitized();
+			// Titles are earned: one the player hasn't got yet isn't shown.
+			if (!style.title().isEmpty() && !Titles.unlocked(player, style.title())) {
+				style = new Cosmetics.Style("", style.color(), style.trail());
+			}
 			Cosmetics.Shown shown = new Cosmetics.Shown(style, isAdmin(context.server(), player));
 			Cosmetics.Shown before = SHOWN.put(player.getUuid(), shown);
 			if (!shown.equals(before)) {
@@ -98,6 +107,7 @@ public class LumaCosmetics implements ModInitializer {
 				SHOWN.put(player.getUuid(), shown);
 				broadcast(server, StyleSetPayload.of(player.getUuid(), shown));
 			}
+			LumaServer.sendTitles(player);
 		});
 
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {

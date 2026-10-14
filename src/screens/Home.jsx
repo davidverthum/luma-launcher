@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { PlayButton, IconButton, Tag, Led, Ping, HeadStack, Emblem, FriendRow, Icon, Sparkline } from '../ds/index.js';
 import { onlineHistory } from '../server.js';
+import { useFeed, onlineNow } from '../feed.js';
 import { inTauri, modpack, onProgress, playDirect, screenshotSrc, enabledOptional } from '../native.js';
 import { gameAccentId } from '../accent.js';
 import { lookOf } from '../cosmetics.js';
@@ -47,7 +48,10 @@ export default function Home({ realm: r, settings, update, notify, setRoute, ope
   const ram = settings.ram[r.id] || 0; // 0 → the core picks half the RAM, 3–6 GB
   const known = server !== null && server !== undefined;
   const online = known && server.online;
-  const here = (known && server.sample) || [];
+  // Who's on from the server itself (Luma Cosmetics): everyone, and who stepped away. The status
+  // ping's sample is the fallback — it can be cut short or hidden.
+  const now = onlineNow(useFeed('online', 30000));
+  const here = online && now.size ? [...now.values()].map((p) => p.name) : (known && server.sample) || [];
   const [shots] = useScreenshots();
   const latest = shots && shots[0];
   const day = onlineHistory(); // re-read on each status poll (the server prop changes)
@@ -149,7 +153,12 @@ export default function Home({ realm: r, settings, update, notify, setRoute, ope
           <span className="caption side-count"><i className={'lm-mark-dot ' + (online ? 'is-online' : 'is-offline')} />{known ? (online ? server.players + ' из ' + server.max : 'выключен') : '…'}</span>
         </div>
         <div className="side-list">
-          {here.length ? here.map((name) => <FriendRow key={name} name={name} status="ingame" activity="играет на Luma" realmColor={r.light} compact action="none" />) : (
+          {here.length ? here.map((name) => {
+            const p = now.get(name.toLowerCase());
+            return p && p.afk
+              ? <FriendRow key={name} name={name} status="away" activity={'отошёл' + (p.afkMin ? ' · ' + p.afkMin + ' мин' : '')} compact action="none" />
+              : <FriendRow key={name} name={name} status="ingame" activity="играет на Luma" realmColor={r.light} compact action="none" />;
+          }) : (
             <div className="side-empty">
               <Icon name={online ? 'sparkle' : 'clock'} size={24} />
               <p className="body">{!known ? 'Спрашиваем сервер…' : online ? 'Сейчас никого. Зайди первым — мир ещё никто не исследовал.' : 'Сервер не отвечает. Возможно, он выключен или закончилась оплата хостинга.'}</p>

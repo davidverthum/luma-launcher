@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Button, IconButton, Icon, Tag, Spinner } from '../ds/index.js';
-import { inTauri, platform, screenshotSrc, openScreenshotsDir, openScreenshot, revealScreenshot, copyScreenshot, deleteScreenshot } from '../native.js';
+import { Button, IconButton, Icon, Tag, Spinner, HeadStack } from '../ds/index.js';
+import { inTauri, platform, modpack, screenshotSrc, openScreenshotsDir, openScreenshot, revealScreenshot, copyScreenshot, deleteScreenshot } from '../native.js';
 import { useScreenshots, shotCount, byDay, dayLabel, timeLabel } from '../shots.js';
+import { dimName, mcClock, WEATHER, isOurServer } from '../feed.js';
 
 const PAGE = 48;
 const errText = (e) => String((e && e.message) || e);
 const sizeLabel = (b) => (b < 1e6 ? Math.max(1, Math.round(b / 1e3)) + ' КБ' : String(Math.round(b / 1e5) / 10).replace('.', ',') + ' МБ');
 
-export default function Shots({ notify, setRoute }) {
+export default function Shots({ notify, setRoute, openMap }) {
   const [list, reload] = useScreenshots();
   const [open, setOpen] = useState(null); // file name shown in the viewer
   const [limit, setLimit] = useState(PAGE);
@@ -52,7 +53,7 @@ export default function Shots({ notify, setRoute }) {
                   {g.items.map((s) => (
                     <button key={s.file} type="button" className="shot" onClick={() => setOpen(s.file)}>
                       <img src={screenshotSrc(s.path)} alt={'Скриншот: ' + dayLabel(s.taken_ms).toLowerCase() + ', ' + timeLabel(s.taken_ms)} loading="lazy" decoding="async" draggable={false} />
-                      <span className="caption shot-time">{timeLabel(s.taken_ms)}</span>
+                      <span className="caption shot-time">{timeLabel(s.taken_ms)}{s.place && s.place.biomeName ? ' · ' + s.place.biomeName : ''}</span>
                     </button>
                   ))}
                 </div>
@@ -62,12 +63,30 @@ export default function Shots({ notify, setRoute }) {
           </>
         )}
       </div>
-      {index >= 0 ? <Viewer shots={shots} index={index} onIndex={(i) => setOpen(shots[i].file)} onClose={() => setOpen(null)} onDeleted={(next) => { setOpen(next); reload(); }} notify={notify} /> : null}
+      {index >= 0 ? <Viewer shots={shots} index={index} onIndex={(i) => setOpen(shots[i].file)} onClose={() => setOpen(null)} onDeleted={(next) => { setOpen(next); reload(); }} notify={notify} openMap={openMap} /> : null}
     </>
   );
 }
 
-function Viewer({ shots, index, onIndex, onClose, onDeleted, notify }) {
+/** Where a shot was taken (Luma Cosmetics notes it next to the picture): biome, world, coordinates,
+ * time of day, weather, who was around — and the spot on the server map. */
+function Place({ place: p, onMap }) {
+  const around = Array.isArray(p.players) ? p.players.filter(Boolean) : [];
+  const where = p.server ? (isOurServer(p.server) ? dimName(p.dim) : 'сервер ' + p.server) : p.world ? 'мир «' + p.world + '»' : dimName(p.dim);
+  return (
+    <div className="shot-place">
+      <span className="shot-place-item"><Icon name="pin" size={12} /><span><b>{p.biomeName || String(p.biome || '').replace(/^.*:/, '') || 'Где-то'}</b> · {where}</span></span>
+      <span className="shot-place-item mono">{p.x} {p.y} {p.z}</span>
+      {p.dayTime != null ? <span className="shot-place-item"><Icon name="clock" size={12} />{mcClock(p.dayTime)}{WEATHER[p.weather] ? ', ' + WEATHER[p.weather] : ''}</span> : null}
+      {around.length ? (
+        <span className="shot-place-item"><HeadStack names={around} max={4} size={20} />рядом {around.length > 2 ? around.slice(0, 2).join(', ') + ' и ещё ' + (around.length - 2) : around.join(' и ')}</span>
+      ) : null}
+      {onMap ? <Button size="sm" variant="luma" icon="globe" onClick={onMap}>Показать на карте</Button> : null}
+    </div>
+  );
+}
+
+function Viewer({ shots, index, onIndex, onClose, onDeleted, notify, openMap }) {
   const s = shots[index];
   const [confirm, setConfirm] = useState(false);
   const [copying, setCopying] = useState(false);
@@ -115,6 +134,11 @@ function Viewer({ shots, index, onIndex, onClose, onDeleted, notify }) {
         </div>
         <IconButton icon="chevron-right" label="Старше" variant="glass" size="lg" disabled={index === shots.length - 1} onClick={() => onIndex(index + 1)} />
       </div>
+      {s.place ? (
+        <Place place={s.place} onMap={openMap && modpack.server.map && isOurServer(s.place.server)
+          ? () => openMap({ dim: s.place.dim, x: s.place.x, y: s.place.y, z: s.place.z, label: 'Скриншот · ' + (s.place.biomeName || dayLabel(s.taken_ms).toLowerCase()) })
+          : null} />
+      ) : null}
       <div className="shot-viewer-bar">
         <Button variant="luma" icon="chat" loading={copying} onClick={copy}>Скопировать</Button>
         <Button icon="eye" onClick={() => openScreenshot(s.file).catch(fail('Не открылся'))}>Открыть</Button>

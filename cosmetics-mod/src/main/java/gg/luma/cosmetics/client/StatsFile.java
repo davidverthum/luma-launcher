@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import gg.luma.cosmetics.Board;
 import gg.luma.cosmetics.BoardPayload;
 import gg.luma.cosmetics.BoardRequestPayload;
+import gg.luma.cosmetics.TitlesPayload;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -37,6 +38,23 @@ final class StatsFile {
 	private static int ticks;
 	private static JsonArray board;
 	private static long boardAt;
+	/** Progress towards each title, from the server; kept for the wardrobe. */
+	private static JsonArray titles;
+
+	static void onTitles(TitlesPayload payload) {
+		JsonArray rows = new JsonArray();
+		for (TitlesPayload.Progress p : payload.titles()) {
+			JsonObject o = new JsonObject();
+			o.addProperty("id", p.id());
+			o.addProperty("have", p.have());
+			o.addProperty("need", p.need());
+			rows.add(o);
+		}
+		titles = rows;
+		// Right after joining the numbers aren't in yet (they come with the first request): the
+		// scheduled write takes the titles along then, instead of zeros now.
+		if (ticks > 240) write(MinecraftClient.getInstance());
+	}
 
 	static void reset() {
 		ticks = 0;
@@ -70,7 +88,8 @@ final class StatsFile {
 
 	private static void write(MinecraftClient client) {
 		ClientPlayerEntity player = client.player;
-		if (player == null) return;
+		// A singleplayer world's numbers aren't the server's: they'd overwrite the real ones.
+		if (player == null || !(ANY_WORLD || !client.isInSingleplayer())) return;
 		try {
 			StatHandler stats = player.getStatHandler();
 			JsonObject me = json(Board.entry(player.getName().getString(), stats));
@@ -90,6 +109,8 @@ final class StatsFile {
 				root.add("board", rows);
 				root.addProperty("boardUpdated", board != null ? boardAt : savedBoardAt());
 			}
+			JsonArray earned = titles != null ? titles : savedArray("titles");
+			if (earned != null) root.add("titles", earned);
 			Path tmp = FILE.resolveSibling("luma-stats.json.tmp");
 			Files.writeString(tmp, root.toString());
 			Files.move(tmp, FILE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
@@ -111,8 +132,12 @@ final class StatsFile {
 
 	/** The board from an earlier session, kept until a fresh one arrives. */
 	private static JsonArray savedBoard() {
+		return savedArray("board");
+	}
+
+	private static JsonArray savedArray(String key) {
 		JsonObject saved = saved();
-		return saved != null && saved.has("board") && saved.get("board").isJsonArray() ? saved.getAsJsonArray("board") : null;
+		return saved != null && saved.has(key) && saved.get(key).isJsonArray() ? saved.getAsJsonArray(key) : null;
 	}
 
 	private static long savedBoardAt() {
